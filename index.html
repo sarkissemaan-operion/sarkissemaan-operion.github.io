@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OPERION Advisory</title>
+  <meta name="description" content="OPERION Advisory — Founder-led operational model, transformation, restructuring, infrastructure delivery, and media format production advisory." />
+  <style>
+    :root{
+      --bg:#07070a;
+      --panel:#0f0f16;
+      --panel2:#0b0b10;
+      --border:#23232b;
+      --text:#f4f4f5;
+      --muted:#a1a1aa;
+      --muted2:#71717a;
+      --accent:#ffffff;
+      --shadow: 0 14px 40px rgba(0,0,0,.35);
+      --r: 18px;
+      --r2: 26px;
+      --max: 1120px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(255,255,255,.07), rgba(0,0,0,0) 55%),
+        radial-gradient(700px 520px at 95% 120%, rgba(255,255,255,.05), rgba(0,0,0,0) 60%),
+        var(--bg);
+      line-height:1.5;
+    }
+    a{color:inherit; text-decoration:none}
+    .wrap{max-width:var(--max); margin:0 auto; padding:0 18px;}
+    .topbar{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter:saturate(160%) blur(10px);
+      background: rgba(7,7,10,.72);
+      border-bottom:1px solid rgba(35,35,43,.7);
+    }
+    .nav{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0;}
+    .brand{display:flex; gap:12px; align-items:center;}
+    .mark{
+      width:38px; height:38px; border-radius:14px;
+      border:1px solid var(--border);
+      display:grid; place-items:center;
+      background:rgba(0,0,0,.2);
+      font-weight:800; letter-spacing:.02em;
+    }
+    .brand strong{display:block; font-size:14px; letter-spacing:.08em}
+    .brand small{display:block; font-size:12px; color:var(--muted2); margin-top:2px}
+    .links{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+    .link{
+      padding:9px 12px; border-radius:14px;
+      font-size:13px; color:var(--muted);
+      transition:.15s ease;
+    }
+    .link:hover{background:rgba(255,255,255,.04); color:var(--text)}
+    .cta{
+      padding:10px 14px; border-radius:16px;
+      border:1px solid var(--border);
+      background:rgba(0,0,0,.2);
+      font-size:13px;
+      display:inline-flex; align-items:center; gap:10px;
+      transition:.15s ease;
+    }
+    .cta:hover{background:rgba(255,255,255,.06)}
+    .cta.primary{
+      background:var(--accent);
+      color:#0a0a0f;
+      border-color:rgba(255,255,255,.8);
+      font-weight:650;
+    }
+    .cta.primary:hover{opacity:.92}
+    .menuBtn{
+      display:none;
+      padding:10px 12px; border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(0,0,0,.2);
+      color:var(--text);
+      font-size:13px;
+    }
+    .mobileMenu{
+      display:none;
+      border-top:1px solid rgba(35,35,43,.7);
+      padding:10px 0 14px;
+    }
+    .mobileMenu .link{display:block}
+
+    section{padding:76px 0; border-top:1px solid rgba(35,35,43,.55)}
+    section:first-of-type{border-top:none}
+    .hero{padding:92px 0 62px;}
+    .badge{
+      display:inline-flex; align-items:center; gap:10px;
+      border:1px solid rgba(35,35,43,.9);
+      background:rgba(0,0,0,.25);
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    h1{
+      margin:14px 0 0;
+      font-size:46px;
+      line-height:1.12;
+      letter-spacing:-.02em;
+    }
+    h1 span{color:var(--muted)}
+    h2{margin:0; font-size:28px; letter-spacing:-.01em}
+    p{margin:12px 0 0; color:var(--muted)}
+    .lead{font-size:16px; max-width:820px}
+    .grid{display:grid; gap:18px}
+    .twoCol{display:grid; gap:18px; grid-template-columns: 1.25fr .95fr}
+    .triGrid{display:grid; gap:14px; grid-template-columns: repeat(3, minmax(0,1fr))}
+    .card{
+      background: linear-gradient(180deg, rgba(15,15,22,.78), rgba(11,11,16,.65));
+      border:1px solid rgba(35,35,43,.92);
+      border-radius: var(--r2);
+      padding:20px;
+      box-shadow: var(--shadow);
+    }
+    .card h3{margin:0; font-size:18px}
+    .mini{font-size:13px; color:var(--muted); margin-top:10px}
+    .chips{margin-top:22px; display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px}
+    .chip{
+      border:1px solid rgba(35,35,43,.9);
+      background:rgba(0,0,0,.18);
+      border-radius:18px;
+      padding:12px 14px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .list{margin:12px 0 0; padding:0; list-style:none}
+    .list li{display:flex; gap:10px; padding:6px 0; color:var(--muted); font-size:13.5px}
+    .dot{
+      margin-top:7px; width:8px; height:8px; border-radius:99px;
+      background:rgba(255,255,255,.35);
+      flex:0 0 auto;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(35,35,43,.9);
+      background:rgba(0,0,0,.2);
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted2);
+    }
+
+    .profileHead{display:flex; gap:14px; align-items:flex-start}
+    .avatar{
+      width:82px; height:82px; border-radius:28px;
+      border:1px solid rgba(35,35,43,.95);
+      background:rgba(0,0,0,.20);
+      display:grid; place-items:center;
+      font-weight:900; letter-spacing:.03em;
+    }
+    .profileName{margin:0; font-size:18px}
+    .profileRole{margin:4px 0 0; color:var(--muted2); font-size:13px}
+    .profileBody{margin-top:12px; color:var(--muted); font-size:14px; line-height:1.6}
+    .focusGrid{display:grid; gap:10px; grid-template-columns: repeat(2, minmax(0,1fr)); margin-top:14px}
+    .focus{
+      border:1px solid rgba(35,35,43,.9);
+      background:rgba(0,0,0,.18);
+      border-radius:18px;
+      padding:12px 14px;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .formGrid{display:grid; grid-template-columns: 1.25fr .95fr; gap:18px}
+    label{display:block; font-size:13px; color:var(--muted)}
+    input, textarea{
+      margin-top:8px;
+      width:100%;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(35,35,43,.95);
+      background:rgba(0,0,0,.18);
+      color:var(--text);
+      outline:none;
+    }
+    input:focus, textarea:focus{border-color: rgba(255,255,255,.25)}
+    textarea{resize:vertical; min-height:140px}
+    .fine{font-size:12px; color:var(--muted2)}
+    footer{border-top:1px solid rgba(35,35,43,.6); padding:30px 0 44px; color:var(--muted2); font-size:12px}
+    .footerRow{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
+    .tags{display:flex; gap:8px; flex-wrap:wrap}
+    .tag{border:1px solid rgba(35,35,43,.9); background:rgba(0,0,0,.18); padding:6px 10px; border-radius:999px}
+
+    @media (max-width: 940px){
+      .twoCol, .formGrid{grid-template-columns:1fr}
+      .triGrid{grid-template-columns:1fr}
+      .chips{grid-template-columns:1fr}
+      .focusGrid{grid-template-columns:1fr}
+      .links{display:none}
+      .menuBtn{display:inline-block}
+      .mobileMenu{display:block}
+    }
+  </style>
+</head>
+
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <div class="nav">
+      <a class="brand" href="#home" aria-label="Go to home">
+        <div class="mark">O</div>
+        <div>
+          <strong>OPERION <span style="color:var(--muted2); font-weight:700; letter-spacing:.02em">Advisory</span></strong>
+          <small>Discreet. Senior-led. Outcome-driven.</small>
+        </div>
+      </a>
+
+      <button class="menuBtn" id="menuBtn" aria-label="Open menu">Menu</button>
+
+      <nav class="links" aria-label="Primary">
+        <a class="link" href="#who">Who we are</a>
+        <a class="link" href="#expertise">Expertise</a>
+        <a class="link" href="#proof">Proof</a>
+        <a class="link" href="#services">Services</a>
+        <a class="link" href="#contact">Contact</a>
+        <a class="cta" href="#contact">Request a call →</a>
+      </nav>
+
+      <a class="cta primary" href="#expertise">Explore expertise →</a>
+    </div>
+
+    <div class="mobileMenu" id="mobileMenu" style="display:none">
+      <a class="link" href="#who">Who we are</a>
+      <a class="link" href="#expertise">Expertise</a>
+      <a class="link" href="#proof">Proof</a>
+      <a class="link" href="#services">Services</a>
+      <a class="link" href="#contact">Contact</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="home" class="hero">
+    <div class="wrap">
+      <div class="twoCol">
+        <div>
+          <span class="badge">Founder-led advisory for execution certainty</span>
+          <h1>Build the operating model.<br><span>Deliver the transformation.</span></h1>
+          <p class="lead">
+            OPERION Advisory supports leaders when the work is complex: operating model build-outs, public-to-private transformation,
+            restructuring, and infrastructure delivery from planning to RFP to execution—plus media format production leadership and
+            specialist support to international consultancies.
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:22px">
+            <a class="cta primary" href="#contact">Speak to OPERION →</a>
+            <a class="cta" href="#services">Engagement formats</a>
+            <a class="cta" href="#proof">See proof points</a>
+          </div>
+
+          <div class="chips">
+            <div class="chip">Operating model: build + execute</div>
+            <div class="chip">Transformation & public→private</div>
+            <div class="chip">Infrastructure: plan → RFP → delivery</div>
+          </div>
+        </div>
+
+        <aside class="card">
+          <h3>What you get</h3>
+          <p class="mini">Clear decision rights. Tight governance. Measurable outcomes.</p>
+          <ul class="list">
+            <li><span class="dot"></span><span>Executive memo + decision log</span></li>
+            <li><span class="dot"></span><span>Operating model blueprint (process, org, KPIs)</span></li>
+            <li><span class="dot"></span><span>Transformation roadmap + PMO cadence</span></li>
+            <li><span class="dot"></span><span>RFP packs + vendor evaluation + delivery oversight</span></li>
+            <li><span class="dot"></span><span>Restructuring plan: cost, roles, controls</span></li>
+          </ul>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section id="who">
+    <div class="wrap">
+      <h2>Who we are</h2>
+      <p class="lead">
+        OPERION Advisory is a senior-led boutique created to help executives execute complex change with clarity,
+        discretion, and control.
+      </p>
+
+      <div class="grid" style="margin-top:18px">
+        <div class="twoCol">
+          <div class="card">
+            <div class="profileHead">
+              <div class="avatar" aria-hidden="true">SS</div>
+              <div>
+                <p class="profileName">Sarkis Semaan</p>
+                <p class="profileRole">Founder &amp; Managing Partner — OPERION Advisory</p>
+              </div>
+            </div>
+
+            <p class="profileBody">
+              Sarkis is a media executive with 20+ years of leadership experience driving transformation, privatization, and
+              operational restructuring. He has led high-impact consultancy engagements for national broadcasters and media entities,
+              including privatization strategy, infrastructure due diligence, and large-scale operational audits.
+            </p>
+
+            <div class="focusGrid">
+              <div class="focus">Operational model build + execution</div>
+              <div class="focus">Public→private transformation</div>
+              <div class="focus">Operational efficiency maximisation</div>
+              <div class="focus">Infrastructure planning, RFPs, execution</div>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px">
+              <a class="cta primary" href="#contact">Work with Sarkis →</a>
+              <a class="cta" href="OPERION_Advisory_Profile_Branded.pdf" download>Download OPERION Profile (PDF)</a>
+            </div>
+            <div class="fine" style="margin-top:10px">
+              Link assumes the branded PDF is uploaded to the same folder as this HTML.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Subject-matter expert layer</h3>
+            <p class="lead" style="max-width:560px">
+              OPERION can support international consultancies as a specialist layer: SME input, workstream ownership,
+              deliverable reviews, and executive framing for boards and ministries.
+            </p>
+            <div style="margin-top:14px">
+              <span class="pill">Typical deliverables</span>
+              <ul class="list">
+                <li><span class="dot"></span><span>Operating model & governance frameworks</span></li>
+                <li><span class="dot"></span><span>Privatization program support & execution plans</span></li>
+                <li><span class="dot"></span><span>Infrastructure due diligence & gap analysis</span></li>
+                <li><span class="dot"></span><span>RFP scope, evaluation matrix, negotiation notes</span></li>
+                <li><span class="dot"></span><span>Board-grade memos & executive packs</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Founder’s note</h3>
+          <p class="lead" style="max-width:980px">
+            OPERION was created to solve a recurring gap: strategies that make sense on paper but fail in execution.
+            We bridge that gap—quietly, rigorously, and with accountability.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="expertise">
+    <div class="wrap">
+      <h2>Main areas of expertise</h2>
+      <p class="lead">
+        Your focus areas, translated into a clear client-facing offering.
+      </p>
+
+      <div class="triGrid" style="margin-top:18px">
+        <div class="card">
+          <h3>Operational model</h3>
+          <span class="pill">Building + executing</span>
+          <ul class="list">
+            <li><span class="dot"></span><span>Target operating model (TOM) design</span></li>
+            <li><span class="dot"></span><span>Governance, decision rights, and cadences</span></li>
+            <li><span class="dot"></span><span>Execution playbooks and KPI tracking</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Transformation</h3>
+          <span class="pill">Including public→private</span>
+          <ul class="list">
+            <li><span class="dot"></span><span>Privatization strategy support and implementation</span></li>
+            <li><span class="dot"></span><span>Operational audits and readiness assessments</span></li>
+            <li><span class="dot"></span><span>Stakeholder alignment and risk governance</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Efficiency maximisation</h3>
+          <span class="pill">Performance & utilization</span>
+          <ul class="list">
+            <li><span class="dot"></span><span>Productivity baselines and performance levers</span></li>
+            <li><span class="dot"></span><span>Facility, crew, and workflow optimisation</span></li>
+            <li><span class="dot"></span><span>Cost structure improvements with controls</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="triGrid" style="margin-top:14px">
+        <div class="card">
+          <h3>Restructuring</h3>
+          <span class="pill">Roles, org, controls</span>
+          <ul class="list">
+            <li><span class="dot"></span><span>Org redesign and role clarity</span></li>
+            <li><span class="dot"></span><span>Workforce and process restructuring</span></li>
+            <li><span class="dot"></span><span>Governance, reporting, and accountability</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Infrastructure build</h3>
+          <span class="pill">Planning → RFP → execution</span>
+          <ul class="list">
+            <li><span class="dot"></span><span>Requirements, architecture, capacity planning</span></li>
+            <li><span class="dot"></span><span>RFP packs, evaluation, negotiation support</span></li>
+            <li><span class="dot"></span><span>Delivery oversight, acceptance, and handover</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>International formats</h3>
+          <span class="pill">Production operations</span>
+          <ul class="list">
+            <li><span class="dot"></span><span>Format production operations and governance</span></li>
+            <li><span class="dot"></span><span>Budgeting, crew planning, and delivery control</span></li>
+            <li><span class="dot"></span><span>Pilots, launches, and quality uplift</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="proof">
+    <div class="wrap">
+      <h2>Proof points</h2>
+      <p class="lead">Kept discreet and NDA-safe.</p>
+
+      <div class="triGrid" style="margin-top:18px">
+        <div class="card">
+          <h3>Privatization & national programs</h3>
+          <ul class="list">
+            <li><span class="dot"></span><span>Privatization strategy and implementation support</span></li>
+            <li><span class="dot"></span><span>Infrastructure due diligence and gap analysis</span></li>
+            <li><span class="dot"></span><span>Board/government stakeholder environments</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Infrastructure delivery</h3>
+          <ul class="list">
+            <li><span class="dot"></span><span>Planning and target architecture definition</span></li>
+            <li><span class="dot"></span><span>RFP issuance, vendor evaluation, negotiations</span></li>
+            <li><span class="dot"></span><span>Tight schedules, budget control, acceptance</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Formats & operations</h3>
+          <ul class="list">
+            <li><span class="dot"></span><span>International format production experience</span></li>
+            <li><span class="dot"></span><span>Operational restructuring and utilization uplift</span></li>
+            <li><span class="dot"></span><span>Commercial mindset and scalable operating practices</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services">
+    <div class="wrap">
+      <h2>Engagement formats</h2>
+      <p class="lead">Choose the shape. We keep delivery senior-led and output-focused.</p>
+
+      <div class="triGrid" style="margin-top:18px">
+        <div class="card">
+          <h3>Operating Model Sprint</h3>
+          <p class="mini">Blueprint + execution plan (2–4 weeks).</p>
+          <ul class="list">
+            <li><span class="dot"></span><span>As-is baseline and pain points</span></li>
+            <li><span class="dot"></span><span>To-be TOM, KPIs, governance</span></li>
+            <li><span class="dot"></span><span>Implementation roadmap + owners</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Transformation Partner</h3>
+          <p class="mini">Senior delivery support with governance and cadence.</p>
+          <ul class="list">
+            <li><span class="dot"></span><span>PMO setup and reporting pack</span></li>
+            <li><span class="dot"></span><span>Risk register and issue management</span></li>
+            <li><span class="dot"></span><span>Stakeholder and change governance</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Infrastructure Workstream</h3>
+          <p class="mini">Plan → RFP → delivery oversight.</p>
+          <ul class="list">
+            <li><span class="dot"></span><span>Scope, requirements, architecture</span></li>
+            <li><span class="dot"></span><span>RFP, evaluation matrix, negotiations</span></li>
+            <li><span class="dot"></span><span>Execution control and acceptance</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="wrap">
+      <h2>Contact</h2>
+      <p class="lead">Confidential conversations by appointment. Share a short brief and we’ll reply with next steps.</p>
+
+      <div class="formGrid" style="margin-top:18px">
+        <div class="card">
+          <form id="contactForm">
+            <div class="grid" style="gap:14px">
+              <div class="twoCol" style="grid-template-columns:1fr 1fr">
+                <label>Name<input name="name" required placeholder="Your name" /></label>
+                <label>Email<input name="email" required type="email" placeholder="name@company.com" /></label>
+              </div>
+              <label>Message<textarea name="message" required placeholder="What are you trying to achieve, and what constraints should we consider?"></textarea></label>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+                <div class="fine">This form is a demo. Connect it to your email service or backend to receive messages.</div>
+                <button type="submit" class="cta primary" style="cursor:pointer">Send message →</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Direct</h3>
+          <p class="mini" style="margin-top:10px"><span class="pill">Email</span></p>
+          <p style="margin-top:8px; color:var(--text)">contact@operionadvisory.com <span style="color:var(--muted2)">(replace if needed)</span></p>
+
+          <p class="mini" style="margin-top:14px"><span class="pill">Availability</span></p>
+          <p style="margin-top:8px">Calls by appointment. NDA-ready if required.</p>
+
+          <div style="margin-top:16px">
+            <p class="mini"><span class="pill">What to include</span></p>
+            <ul class="list">
+              <li><span class="dot"></span><span>Objective + timeline</span></li>
+              <li><span class="dot"></span><span>Stakeholders involved</span></li>
+              <li><span class="dot"></span><span>Known risks/constraints</span></li>
+              <li><span class="dot"></span><span>Desired outputs</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footerRow">
+      <div>
+        <div style="font-weight:800; color:var(--text); letter-spacing:.04em">OPERION Advisory</div>
+        <div style="margin-top:4px">© <span id="year"></span> OPERION Advisory. All rights reserved.</div>
+      </div>
+      <div class="tags">
+        <span class="tag">Founder & Managing Partner</span>
+        <span class="tag">Confidentiality-first</span>
+        <span class="tag">Execution certainty</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const mobileMenu = document.getElementById('mobileMenu');
+  menuBtn?.addEventListener('click', () => {
+    const open = mobileMenu.style.display === 'block';
+    mobileMenu.style.display = open ? 'none' : 'block';
+  });
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  document.getElementById('contactForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    alert('Thanks — this is a demo form. Connect it to your email service or backend to receive messages.');
+  });
+
+  [...document.querySelectorAll('#mobileMenu a')].forEach(a => {
+    a.addEventListener('click', () => (mobileMenu.style.display = 'none'));
+  });
+</script>
+</body>
+</html>
