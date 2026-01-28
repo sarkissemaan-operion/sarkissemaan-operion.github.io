@@ -512,8 +512,10 @@
               </div>
               <label>Message<textarea name="message" required placeholder="What are you trying to achieve, and what constraints should we consider?"></textarea></label>
               <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
-                <p id="form-status" style="display:none; color:green; margin-top:15px;">Thank you! Your message has been sent successfully.</p>
-                <button type="submit" class="cta primary" style="cursor:pointer">Send message →</button>
+               <button type="submit" class="cta primary" style="cursor:pointer">Send message →</button>
+  <p id="form-status" style="display:none; color:green; margin-top:15px;">
+  Thank you! Your message has been sent successfully.
+</p>
               </div>
             </div>
           </form>
@@ -561,14 +563,20 @@
 <script>
   const menuBtn = document.getElementById('menuBtn');
   const mobileMenu = document.getElementById('mobileMenu');
-  menuBtn?.addEventListener('click', () => {
-    const open = mobileMenu.style.display === 'block';
-    mobileMenu.style.display = open ? 'none' : 'block';
-  });
+
+  if (menuBtn && mobileMenu) {
+    menuBtn.addEventListener('click', () => {
+      const open = mobileMenu.style.display === 'block';
+      mobileMenu.style.display = open ? 'none' : 'block';
+    });
+
+    [...mobileMenu.querySelectorAll('a')].forEach(a => {
+      a.addEventListener('click', () => (mobileMenu.style.display = 'none'));
+    });
+  }
 
   document.getElementById('year').textContent = new Date().getFullYear();
-alert('Thanks — this is a demo form. Connect it to your email service or backend to receive messages.');
-  });
+</script>
 
   [...document.querySelectorAll('#mobileMenu a')].forEach(a => {
     a.addEventListener('click', () => (mobileMenu.style.display = 'none'));
