@@ -43,11 +43,11 @@
     .nav{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0;}
     .brand{display:flex; gap:12px; align-items:center;}
     .mark{
-      width:38px; height:38px; border-radius:14px;
+      width:56px; height:56px; border-radius:18px;
       border:1px solid var(--border);
       display:grid; place-items:center;
       background:rgba(0,0,0,.2);
-      font-weight:800; letter-spacing:.02em;
+      font-weight:800; font-size:20px; letter-spacing:.02em;
     }
     .brand strong{display:block; font-size:14px; letter-spacing:.08em}
     .brand small{display:block; font-size:12px; color:var(--muted2); margin-top:2px}
@@ -314,9 +314,7 @@
               <a class="cta primary" href="#contact">Work with Sarkis →</a>
               <a class="cta" href="OPERION_Advisory_Profile_Branded.pdf" download>Download OPERION Profile (PDF)</a>
             </div>
-            <div class="fine" style="margin-top:10px">
-              Link assumes the branded PDF is uploaded to the same folder as this HTML.
-            </div>
+            
           </div>
 
           <div class="card">
@@ -504,7 +502,9 @@
 
       <div class="formGrid" style="margin-top:18px">
         <div class="card">
-          <form id="contactForm">
+          <form id="contactForm" action="https://formspree.io/f/xaqogzdo" method="POST">
+            <input type="hidden" name="_subject" value="OPERION Advisory – New website enquiry" />
+            <input type="hidden" name="_template" value="table" />
             <div class="grid" style="gap:14px">
               <div class="twoCol" style="grid-template-columns:1fr 1fr">
                 <label>Name<input name="name" required placeholder="Your name" /></label>
@@ -512,7 +512,7 @@
               </div>
               <label>Message<textarea name="message" required placeholder="What are you trying to achieve, and what constraints should we consider?"></textarea></label>
               <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
-                <div class="fine">This form is a demo. Connect it to your email service or backend to receive messages.</div>
+                
                 <button type="submit" class="cta primary" style="cursor:pointer">Send message →</button>
               </div>
             </div>
@@ -522,7 +522,7 @@
         <div class="card">
           <h3>Direct</h3>
           <p class="mini" style="margin-top:10px"><span class="pill">Email</span></p>
-          <p style="margin-top:8px; color:var(--text)">contact@operionadvisory.com <span style="color:var(--muted2)">(replace if needed)</span></p>
+          <p style="margin-top:8px; color:var(--text)">contact@operionadvisory.com <span style="color:var(--muted2)"></span></p>
 
           <p class="mini" style="margin-top:14px"><span class="pill">Availability</span></p>
           <p style="margin-top:8px">Calls by appointment. NDA-ready if required.</p>
@@ -567,10 +567,7 @@
   });
 
   document.getElementById('year').textContent = new Date().getFullYear();
-
-  document.getElementById('contactForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    alert('Thanks — this is a demo form. Connect it to your email service or backend to receive messages.');
+alert('Thanks — this is a demo form. Connect it to your email service or backend to receive messages.');
   });
 
   [...document.querySelectorAll('#mobileMenu a')].forEach(a => {
