@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — OPERION Advisory</title>
+<meta name="description" content="Start a confidential conversation with OPERION Advisory. Calls by appointment, NDA-ready if required.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="nav">
+    <a href="index.html" class="brand">
+      <span class="mark">O</span>
+      <span>OPERION Advisory<span class="tag">Discreet. Outcome driven.</span></span>
+    </a>
+    <button class="nav-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="expertise.html">Expertise</a>
+      <a href="services.html">Engagement Models</a>
+      <a href="insights.html">Insights</a>
+      <a href="contact.html" class="nav-cta" aria-current="page">Request a call →</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <span class="eyebrow on-dark">Contact</span>
+      <h1>Confidential conversations, by appointment.</h1>
+      <p class="lede">Share a short brief and we'll reply with next steps — usually within one
+        business day.</p>
+    </div>
+  </section>
+
+  <section class="bg-white">
+    <div class="wrap contact-grid">
+      <div>
+        <h3>Send a brief</h3>
+        <!--
+          To receive submissions on GitHub Pages (a static host), connect this form to a
+          form backend such as Formspree (https://formspree.io) or Netlify Forms and replace
+          the action URL below with the endpoint they provide.
+        -->
+        <form id="contact-form" action="https://formspree.io/f/your-form-id" method="POST">
+          <div>
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+          <div>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+          <div>
+            <label for="message">Message</label>
+            <textarea id="message" name="message" required placeholder="Objective, timeline, and any constraints we should know about."></textarea>
+          </div>
+          <div class="btn-row" style="margin-top:0.5em;">
+            <button type="submit" class="btn btn-primary">Send message →</button>
+          </div>
+          <p id="form-status" style="color:var(--signal);font-weight:600;"></p>
+        </form>
+      </div>
+
+      <div>
+        <div class="info-block" style="border-top:none;padding-top:0;">
+          <h4>Direct</h4>
+          <p><a href="mailto:contact@operionadvisory.com">contact@operionadvisory.com</a></p>
+        </div>
+        <div class="info-block">
+          <h4>Availability</h4>
+          <p>Calls by appointment. NDA-ready if required.</p>
+        </div>
+        <div class="info-block">
+          <h4>What to include</h4>
+          <ul style="padding-left:1.1em;color:var(--text-muted);margin:0;">
+            <li>Objective + timeline</li>
+            <li>Stakeholders involved</li>
+            <li>Known risks / constraints</li>
+            <li>Desired outputs</li>
+          </ul>
+        </div>
+        <div class="info-block" style="border-bottom:none;">
+          <h4>Profile</h4>
+          <p><a href="assets/OPERION_Advisory_Profile.pdf">Download the OPERION Advisory profile (PDF) →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-top">
+    <div class="footer-brand">
+      <div class="brand"><span class="mark">O</span><span>OPERION Advisory</span></div>
+      <p style="max-width:32ch;">Senior-led advisory for operating model design, transformation, restructuring, and infrastructure delivery.</p>
+    </div>
+    <div>
+      <h4>Navigate</h4>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="expertise.html">Expertise</a></li>
+        <li><a href="services.html">Engagement Models</a></li>
+        <li><a href="insights.html">Insights</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Capabilities</h4>
+      <ul>
+        <li><a href="expertise.html">Operating Model</a></li>
+        <li><a href="expertise.html">Transformation</a></li>
+        <li><a href="expertise.html">Infrastructure</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <ul>
+        <li><a href="mailto:contact@operionadvisory.com">contact@operionadvisory.com</a></li>
+        <li><a href="contact.html">Request a call →</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© <span id="year"></span> OPERION Advisory. All rights reserved.</span>
+    <span>Founder &amp; Managing Partner — Confidentiality-first — Execution certainty</span>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
