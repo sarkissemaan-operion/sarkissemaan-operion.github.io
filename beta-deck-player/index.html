@@ -1,12 +1,17 @@
 <!--
-  BETA DECK — universal-ingest edition
-  ─────────────────────────────────────
+  BETA DECK — universal-ingest / dual-bus edition
+  ─────────────────────────────────────────────────
   Hosted at operionadvisory.com/beta-deck-player/ via this repo's GitHub Pages.
 
   It calls out to unpkg.com for the FFmpeg.wasm engine and to Google Fonts — both need
-  outbound network access from the viewer's browser. For an air-gapped/offline deployment
-  (common on broadcast facility networks), download the four files referenced in the
-  <script src> tag and the coreURL/wasmURL below and point them at your own host instead.
+  outbound network access from the viewer's browser. FFmpeg.wasm spawns a Web Worker
+  internally, and browsers refuse to construct a Worker from a cross-origin script URL —
+  only same-origin or blob: URLs are allowed — so ensureFFmpeg() below fetches the core
+  files with @ffmpeg/util's toBlobURL() before calling ffmpeg.load(), rather than passing
+  the raw unpkg URLs straight through. For an air-gapped/offline deployment (common on
+  broadcast facility networks), download the ffmpeg.js, util's index.js, ffmpeg-core.js and
+  ffmpeg-core.wasm files referenced below and point every URL at your own host instead —
+  toBlobURL() still applies, it just fetches from your own server.
 
   SPEED: this uses the single-threaded FFmpeg core so it works on any host with no special
   configuration. For faster multi-threaded conversion, swap '@ffmpeg/core' for
@@ -18,6 +23,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Share+Tech+Mono&family=Barlow:wght@400;500;600&display=swap">
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 <style>
   :root{
     color-scheme: dark;
@@ -31,6 +37,7 @@
     --amber:#ffb238;
     --amber-dim:#6b4d17;
     --red:#e8384f;
+    --red-dim:#5a1c24;
     --metal:#55585d;
     --metal-hi:#86898e;
     --text:#e7e9ea;
@@ -51,12 +58,12 @@
     justify-content:center;
     padding: max(20px, env(safe-area-inset-top,0px)) 16px max(20px, env(safe-area-inset-bottom,0px));
   }
-  .stage{ width:100%; max-width:1060px; display:flex; flex-direction:column; gap:16px; }
+  .stage{ width:100%; max-width:1180px; display:flex; flex-direction:column; gap:16px; }
 
   /* ---------- masthead ---------- */
   .masthead{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:0 4px; }
   .masthead h1{ font-family:'Oswald',sans-serif; font-weight:700; font-size:1.5rem; letter-spacing:.02em; margin:0; }
-  .masthead p{ margin:0; color:var(--text-dim); font-size:.85rem; max-width:56ch; }
+  .masthead p{ margin:0; color:var(--text-dim); font-size:.85rem; max-width:64ch; }
 
   /* ---------- deck chassis ---------- */
   .deck{
@@ -67,7 +74,7 @@
     padding:16px;
     display:flex;
     flex-direction:column;
-    gap:14px;
+    gap:16px;
   }
 
   .deck-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:2px 6px; }
@@ -94,14 +101,43 @@
   .icon-btn:active{ box-shadow: inset 0 2px 3px #000; }
   .icon-btn svg{ width:16px; height:16px; }
 
+  /* ---------- switcher: PGM / take / PST ---------- */
+  .bus-pair{ display:flex; align-items:stretch; justify-content:center; gap:16px; flex-wrap:wrap; }
+  .bus{ flex:1 1 360px; min-width:260px; max-width:520px; display:flex; flex-direction:column; gap:8px; }
+  .bus-label{
+    display:flex; align-items:center; gap:8px; font-family:'Oswald',sans-serif; font-weight:600;
+    font-size:.72rem; letter-spacing:.2em; color:var(--text-dim); padding:0 4px;
+  }
+  .bus-label .dot{ width:8px; height:8px; border-radius:50%; background:var(--metal); }
+  .bus-label.pgm .dot{ background:var(--red); box-shadow:0 0 6px var(--red); }
+  .bus-label.pst .dot{ background:var(--amber); box-shadow:0 0 6px var(--amber); }
+  .bus-label.pgm{ color:#f2a3ac; }
+  .bus-label.pst{ color:#f2cf9a; }
+
+  .take-col{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; flex:0 0 auto; padding:0 4px; }
+  .take-btn{
+    width:92px; height:92px; border-radius:50%; border:2px solid #000; cursor:pointer;
+    background: radial-gradient(circle at 35% 30%, #ff5d6f, var(--red) 60%, #7a1c26 100%);
+    color:#fff; font-family:'Oswald',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.06em;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -6px 10px rgba(0,0,0,.35), 0 6px 14px rgba(232,56,79,.35);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  }
+  .take-btn span{ font-family:'Share Tech Mono',monospace; font-size:.55rem; font-weight:400; letter-spacing:.04em; opacity:.85; }
+  .take-btn:active{ transform:translateY(1px); box-shadow: inset 0 2px 6px rgba(0,0,0,.5); }
+  .take-btn:disabled{ background:linear-gradient(180deg,var(--chassis-3),var(--chassis-2)); color:var(--text-dim); box-shadow:inset 0 1px 0 #4a4d51; cursor:not-allowed; }
+  .bus-target{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .bus-target > span{ font-family:'Oswald',sans-serif; font-size:.6rem; letter-spacing:.16em; color:var(--text-dim); }
+
   /* ---------- monitor ---------- */
   .monitor-frame{
     position:relative;
     background: var(--bezel);
     border-radius:6px;
-    padding:14px;
+    padding:12px;
     box-shadow: inset 0 0 0 1px #000, inset 0 10px 24px -12px #000;
   }
+  .monitor-frame.pgm-frame{ box-shadow: inset 0 0 0 1px #000, inset 0 10px 24px -12px #000, 0 0 0 1px rgba(232,56,79,.35); }
+  .monitor-frame.pst-frame{ box-shadow: inset 0 0 0 1px #000, inset 0 10px 24px -12px #000, 0 0 0 1px rgba(255,178,56,.25); }
   .screws{ position:absolute; inset:6px; pointer-events:none; }
   .screws span{ position:absolute; width:6px; height:6px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #7c7f84, #202225 70%); }
   .screws span:nth-child(1){ top:0; left:0; }
@@ -112,7 +148,7 @@
   .screen{
     position:relative;
     width:100%;
-    max-height:56vh;
+    max-height:42vh;
     aspect-ratio: 16/9;
     background:#000;
     border-radius:2px;
@@ -122,88 +158,74 @@
     align-items:center;
     justify-content:center;
   }
+  .screen.small{ max-height:220px; }
   .screen video, .screen canvas{ width:100%; height:100%; object-fit:contain; background:#000; display:block; }
   .screen .placeholder{
-    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
-    color:var(--text-dim); text-align:center; padding:20px;
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    color:var(--text-dim); text-align:center; padding:16px;
   }
-  .screen .placeholder svg{ width:40px; height:40px; opacity:.6; }
-  .screen .placeholder small{ font-size:.72rem; max-width:36ch; line-height:1.4; }
+  .screen .placeholder svg{ width:34px; height:34px; opacity:.6; }
+  .screen .placeholder small{ font-size:.7rem; max-width:34ch; line-height:1.4; }
 
   .tally{
-    position:absolute; top:22px; left:22px; display:flex; align-items:center; gap:6px;
-    font-family:'Oswald',sans-serif; font-size:.62rem; letter-spacing:.12em; color:var(--text-dim);
+    position:absolute; top:18px; left:18px; display:flex; align-items:center; gap:6px;
+    font-family:'Oswald',sans-serif; font-size:.6rem; letter-spacing:.12em; color:var(--text-dim);
     background:rgba(10,11,12,.7); padding:4px 8px; border-radius:20px; z-index:2;
   }
   .tally .lamp{ width:8px; height:8px; border-radius:50%; background:#3a1418; box-shadow: inset 0 0 2px #000; }
-  .tally.on .lamp{ background:var(--red); box-shadow:0 0 8px 2px var(--red); }
-  .tally.on{ color:var(--text); }
+  .tally.on-red .lamp{ background:var(--red); box-shadow:0 0 8px 2px var(--red); }
+  .tally.on-red{ color:var(--text); }
+  .tally.on-amber .lamp{ background:var(--amber); box-shadow:0 0 8px 2px var(--amber); }
+  .tally.on-amber{ color:var(--text); }
+  .tally.right{ left:auto; right:18px; }
 
-  .delay-tally{ position:absolute; top:22px; right:22px; z-index:2; }
-  .delay-tally .lamp{ background:#4a3510; }
-  .delay-tally.on .lamp{ background:var(--amber); box-shadow:0 0 8px 2px var(--amber); }
-  .delay-tally.on{ color:var(--text); }
+  .out-tag{
+    position:absolute; bottom:12px; right:12px; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.6rem;
+    color:var(--text-dim); background:rgba(10,11,12,.7); padding:3px 7px; border-radius:4px;
+  }
 
-  /* ---------- VFD strip ---------- */
-  .vfd{
+  /* ---------- readout strip (per bus) ---------- */
+  .readout{
     background: var(--readout-bg);
     border-radius:6px;
     box-shadow: inset 0 0 0 1px #000, inset 0 4px 10px -4px #000;
-    padding:10px 14px;
-    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:8px 12px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
     flex-wrap:wrap;
   }
-  .vfd-source{ font-family:'Share Tech Mono',monospace; font-size:.78rem; color:var(--green-dim); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:28ch; }
-  .vfd-source.live{ color:var(--green); }
-  .vfd-tc{ font-family:'Share Tech Mono',monospace; font-size:1.55rem; letter-spacing:.06em; color:var(--green); text-shadow:0 0 8px rgba(61,255,138,.45); font-variant-numeric:tabular-nums; }
-  .vfd-tc .colon{ animation: blink 1s steps(1) infinite; }
-  .vfd.paused .vfd-tc .colon{ animation:none; }
-  @keyframes blink{ 50%{ opacity:.25; } }
-  .vfd-right{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
-  .vfd-status{ font-family:'Oswald',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.14em; color:var(--amber); text-shadow:0 0 6px rgba(255,178,56,.4); }
-  .vfd-delay{ font-family:'Share Tech Mono',monospace; font-size:.68rem; color:var(--amber-dim); }
-  .vfd-delay.on{ color:var(--amber); }
+  .readout-source{ font-family:'Share Tech Mono',monospace; font-size:.72rem; color:var(--green-dim); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:20ch; }
+  .readout.pgm .readout-source{ color:var(--green); }
+  .readout-tc{ font-family:'Share Tech Mono',monospace; font-size:1.15rem; letter-spacing:.04em; color:var(--green); text-shadow:0 0 6px rgba(61,255,138,.4); font-variant-numeric:tabular-nums; }
+  .readout.paused .readout-tc{ opacity:.6; }
+  .readout-status{ font-family:'Oswald',sans-serif; font-weight:600; font-size:.68rem; letter-spacing:.12em; color:var(--amber); text-shadow:0 0 5px rgba(255,178,56,.35); }
 
-  /* ---------- source tabs ---------- */
-  .source-tabs{ display:flex; gap:8px; }
-  .source-tabs button{
-    flex:0 0 auto; font-family:'Oswald',sans-serif; font-weight:600; font-size:.68rem; letter-spacing:.1em;
-    padding:7px 14px; border-radius:5px 5px 0 0; border:1px solid #000; border-bottom:none;
-    background:var(--chassis-2); color:var(--text-dim); cursor:pointer;
+  /* ---------- audio strip (Program only) ---------- */
+  .audio-strip{
+    display:flex; align-items:stretch; gap:12px; background:var(--bezel); border-radius:6px; padding:10px 12px;
+    box-shadow: inset 0 0 0 1px #000;
   }
-  .source-tabs button.active{ background:var(--chassis-3); color:var(--text); }
-
-  .source-panel{
-    background:var(--chassis-3); border:1px solid #000; border-radius:0 6px 6px 6px; padding:12px;
-    display:flex; flex-direction:column; gap:10px;
+  .audio-label{ font-family:'Oswald',sans-serif; font-size:.6rem; letter-spacing:.14em; color:var(--text-dim); writing-mode:vertical-rl; text-orientation:mixed; align-self:center; }
+  .meters{ display:flex; align-items:flex-end; gap:6px; }
+  .meter-track{ position:relative; width:9px; height:78px; background:#050605; border-radius:2px; overflow:hidden; }
+  .meter-fill{ position:absolute; left:0; right:0; bottom:0; height:100%;
+    background:linear-gradient(to top, var(--green) 0%, var(--green) 62%, var(--amber) 62%, var(--amber) 84%, var(--red) 84%, var(--red) 100%); }
+  .meter-mask{ position:absolute; left:0; right:0; top:0; height:100%; background:#050605; }
+  .meter-peak{ position:absolute; left:-1px; right:-1px; height:2px; background:#fff; bottom:0; }
+  .meter-scale{ display:flex; flex-direction:column; justify-content:space-between; height:78px; font-family:'Share Tech Mono',monospace; font-size:.52rem; color:var(--text-dim); padding:1px 0; }
+  .fader-col{ display:flex; flex-direction:column; align-items:center; gap:4px; margin-left:4px; }
+  .fader-wrap{ width:26px; height:78px; display:flex; align-items:center; justify-content:center; }
+  .fader-wrap input[type=range]{
+    -webkit-appearance:none; appearance:none; width:74px; height:18px; background:transparent;
+    transform:rotate(-90deg);
   }
-
-  .dropzone{
-    border:1.5px dashed var(--divider); border-radius:6px; padding:16px; text-align:center;
-    color:var(--text-dim); font-size:.82rem; cursor:pointer; transition:border-color .15s, color .15s;
+  .fader-wrap input[type=range]::-webkit-slider-runnable-track{ height:4px; background:var(--metal); border-radius:2px; }
+  .fader-wrap input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:12px; margin-top:-4px; border-radius:2px;
+    background:linear-gradient(180deg,var(--metal-hi),var(--metal)); border:1px solid #000;
   }
-  .dropzone.drag{ border-color:var(--green); color:var(--text); }
-  .dropzone strong{ color:var(--text); }
-  .row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .btn{
-    font-family:'Barlow',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.02em;
-    padding:8px 14px; border-radius:5px; border:1px solid #000; cursor:pointer;
-    background:linear-gradient(180deg,var(--metal-hi),var(--metal)); color:#111; box-shadow: inset 0 1px 0 #9a9da2;
-  }
-  .btn:active{ box-shadow:none; transform:translateY(1px); }
-  .btn.ghost{ background:var(--chassis-2); color:var(--text); box-shadow:inset 0 1px 0 #4a4d51; }
-  .btn.danger{ background:linear-gradient(180deg,#ff5d6f,var(--red)); color:#fff; }
-  .btn.danger:disabled, .btn:disabled{ opacity:.4; cursor:not-allowed; }
-  input[type=text], input[type=number], select{
-    font-family:'Barlow',sans-serif; font-size:.82rem; background:var(--chassis-2); color:var(--text);
-    border:1px solid #000; border-radius:5px; padding:7px 9px; box-shadow:inset 0 1px 3px #000;
-  }
-  label.field{ display:flex; flex-direction:column; gap:4px; font-size:.72rem; color:var(--text-dim); letter-spacing:.03em; }
-  .hint{ font-size:.72rem; color:var(--text-dim); line-height:1.5; }
-  .hint.busy{ color:var(--amber); }
-
-  .engine-bar{ height:4px; border-radius:2px; background:var(--bezel); overflow:hidden; box-shadow:inset 0 1px 2px #000; }
-  .engine-bar span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--green-dim),var(--green)); transition:width .15s linear; }
+  .fader-wrap input[type=range]::-moz-range-track{ height:4px; background:var(--metal); border-radius:2px; }
+  .fader-wrap input[type=range]::-moz-range-thumb{ width:20px; height:12px; border-radius:2px; background:linear-gradient(180deg,var(--metal-hi),var(--metal)); border:1px solid #000; }
+  .fader-value{ font-family:'Share Tech Mono',monospace; font-size:.62rem; color:var(--text-dim); }
 
   /* ---------- transport ---------- */
   .transport-wrap{ display:flex; align-items:center; justify-content:center; gap:28px; flex-wrap:wrap; padding:6px 0 2px; }
@@ -240,19 +262,53 @@
   .jog-mark{ position:absolute; left:50%; top:10px; width:2px; height:10px; background:var(--amber); border-radius:2px; transform-origin:1px 32px; }
   .dial-label{ position:absolute; bottom:-20px; left:0; right:0; text-align:center; font-family:'Oswald',sans-serif; font-size:.58rem; letter-spacing:.14em; color:var(--text-dim); }
 
+  .transport-caption{ text-align:center; font-family:'Oswald',sans-serif; font-size:.6rem; letter-spacing:.14em; color:var(--text-dim); margin-top:-4px; }
+  .transport-caption b{ color:var(--text); }
+
+  /* ---------- panels (file/playlist + live) ---------- */
+  .panels{ display:flex; gap:16px; flex-wrap:wrap; }
+  .panel{ flex:1 1 320px; min-width:260px; background:var(--chassis-3); border:1px solid #000; border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .panel h2{ margin:0; font-family:'Oswald',sans-serif; font-size:.72rem; letter-spacing:.14em; font-weight:600; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center; }
+
+  .dropzone{
+    border:1.5px dashed var(--divider); border-radius:6px; padding:16px; text-align:center;
+    color:var(--text-dim); font-size:.82rem; cursor:pointer; transition:border-color .15s, color .15s;
+  }
+  .dropzone.drag{ border-color:var(--green); color:var(--text); }
+  .dropzone strong{ color:var(--text); }
+  .row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .btn{
+    font-family:'Barlow',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.02em;
+    padding:8px 14px; border-radius:5px; border:1px solid #000; cursor:pointer;
+    background:linear-gradient(180deg,var(--metal-hi),var(--metal)); color:#111; box-shadow: inset 0 1px 0 #9a9da2;
+  }
+  .btn:active{ box-shadow:none; transform:translateY(1px); }
+  .btn.ghost{ background:var(--chassis-2); color:var(--text); box-shadow:inset 0 1px 0 #4a4d51; }
+  .btn.danger{ background:linear-gradient(180deg,#ff5d6f,var(--red)); color:#fff; }
+  .btn.danger:disabled, .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  input[type=text], input[type=number], select{
+    font-family:'Barlow',sans-serif; font-size:.82rem; background:var(--chassis-2); color:var(--text);
+    border:1px solid #000; border-radius:5px; padding:7px 9px; box-shadow:inset 0 1px 3px #000;
+  }
+  label.field{ display:flex; flex-direction:column; gap:4px; font-size:.72rem; color:var(--text-dim); letter-spacing:.03em; }
+  .hint{ font-size:.72rem; color:var(--text-dim); line-height:1.5; }
+  .hint.busy{ color:var(--amber); }
+
+  .engine-bar{ height:4px; border-radius:2px; background:var(--bezel); overflow:hidden; box-shadow:inset 0 1px 2px #000; }
+  .engine-bar span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--green-dim),var(--green)); transition:width .15s linear; }
+
   /* ---------- playlist ---------- */
-  .playlist{ background:var(--chassis-2); border:1px solid #000; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:8px; }
-  .playlist h2{ margin:0; font-family:'Oswald',sans-serif; font-size:.78rem; letter-spacing:.1em; font-weight:600; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center; }
+  .playlist{ display:flex; flex-direction:column; gap:8px; }
   .pl-items{ display:flex; flex-direction:column; gap:4px; max-height:220px; overflow-y:auto; }
   .pl-item{
-    display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:5px; background:var(--chassis-3);
+    display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:5px; background:var(--chassis-2);
     font-size:.8rem; cursor:pointer; border:1px solid transparent;
   }
-  .pl-item.current{ border-color:var(--green); color:var(--green); }
+  .pl-item.current{ border-color:var(--amber); color:var(--amber); }
   .pl-item .idx{ font-family:'Share Tech Mono',monospace; color:var(--text-dim); width:2ch; flex:0 0 auto; }
   .pl-item .nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .pl-item .tag{ font-family:'Share Tech Mono',monospace; font-size:.62rem; color:var(--amber-dim); flex:0 0 auto; }
-  .pl-item .mini{ width:24px; height:24px; border-radius:4px; border:1px solid #000; background:var(--chassis-2); color:var(--text-dim); flex:0 0 auto; cursor:pointer; }
+  .pl-item .mini{ width:24px; height:24px; border-radius:4px; border:1px solid #000; background:var(--chassis-3); color:var(--text-dim); flex:0 0 auto; cursor:pointer; }
   .pl-item .mini:hover{ color:var(--text); }
   .pl-empty{ color:var(--text-dim); font-size:.78rem; padding:8px 2px; }
 
@@ -284,7 +340,8 @@
     .tbtn{ width:48px; height:40px; }
     .dial{ width:140px; height:140px; }
     .jog{ width:68px; height:68px; margin:-34px 0 0 -34px; }
-    .vfd-tc{ font-size:1.2rem; }
+    .readout-tc{ font-size:1rem; }
+    .take-col{ flex-direction:row-reverse; width:100%; justify-content:center; }
   }
 </style>
 
@@ -292,7 +349,7 @@
   <div class="masthead">
     <div>
       <h1>Beta Deck</h1>
-      <p>A browser transport deck in the idiom of a professional Digital Betacam recorder. MP4/WebM/MOV play back instantly; MXF, AVI, WMV and anything else your browser can't decode are converted right here in the tab by an embedded FFmpeg engine.</p>
+      <p>A dual-bus playout deck in the idiom of a professional broadcast switcher paired with a Digital Betacam recorder: cue a clip on Preview, take it to Program when ready. MP4/WebM/MOV play back instantly; MXF, AVI, WMV and anything else convert automatically in the tab.</p>
     </div>
   </div>
 
@@ -300,7 +357,7 @@
     <div class="deck-top">
       <div class="nameplate">
         <span class="brand">OPERION PROFESSIONAL VIDEO</span>
-        <span class="model">DVR&#8209;1000 · DIGITAL VIDEO DECK</span>
+        <span class="model">DVR&#8209;2100 · PGM/PST PLAYOUT DECK</span>
       </div>
       <div class="top-controls">
         <div class="mode-switch" role="tablist" aria-label="Player mode">
@@ -313,58 +370,74 @@
       </div>
     </div>
 
-    <div class="monitor-frame">
-      <div class="screws"><span></span><span></span><span></span><span></span></div>
-      <div class="tally" id="recTally"><span class="lamp"></span>REC</div>
-      <div class="tally delay-tally" id="delayTally"><span class="lamp"></span>DELAY</div>
-      <div class="screen" id="screen">
-        <video id="fileVideo" playsinline hidden></video>
-        <canvas id="liveCanvas" hidden></canvas>
-        <div class="placeholder" id="placeholder">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 10l5-3v10l-5-3"/></svg>
-          <small>No source loaded. Drop any video file below — unsupported containers convert automatically — or switch to LIVE for a delayed camera monitor.</small>
+    <!-- ================= SWITCHER: PGM / TAKE / PST ================= -->
+    <div class="bus-pair">
+      <div class="bus bus-pgm">
+        <div class="bus-label pgm"><span class="dot"></span>PROGRAM — ON AIR</div>
+        <div class="monitor-frame pgm-frame">
+          <div class="screws"><span></span><span></span><span></span><span></span></div>
+          <div class="tally on-red" id="pgmTally"><span class="lamp"></span>ON AIR</div>
+          <div class="out-tag" id="pgmOutTag">OUT → BROWSER</div>
+          <div class="screen" id="pgmScreen">
+            <video id="programVideo" playsinline hidden></video>
+            <div class="placeholder" id="pgmPlaceholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 10l5-3v10l-5-3"/></svg>
+              <small>No signal on Program. Cue a clip on Preview, then TAKE it to air.</small>
+            </div>
+          </div>
+        </div>
+        <div class="readout pgm" id="pgmReadout">
+          <div class="readout-source" id="pgmSource">NO SIGNAL</div>
+          <div class="readout-tc" id="pgmTc">00<span class="colon">:</span>00<span class="colon">:</span>00<span class="colon">:</span>00</div>
+          <div class="readout-status" id="pgmStatus">STOP</div>
+        </div>
+        <div class="audio-strip">
+          <div class="audio-label">PGM AUDIO</div>
+          <div class="meters">
+            <div class="meter-track"><div class="meter-fill"></div><div class="meter-mask" id="meterMaskL"></div><div class="meter-peak" id="meterPeakL"></div></div>
+            <div class="meter-track"><div class="meter-fill"></div><div class="meter-mask" id="meterMaskR"></div><div class="meter-peak" id="meterPeakR"></div></div>
+            <div class="meter-scale"><span>0</span><span>-6</span><span>-12</span><span>-20</span><span>-∞</span></div>
+          </div>
+          <div class="fader-col">
+            <div class="fader-wrap"><input type="range" id="audioGain" min="0" max="2" step="0.01" value="1"></div>
+            <div class="fader-value" id="audioGainVal">0.0 dB</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="take-col">
+        <button class="take-btn" id="takeBtn" disabled title="Send Preview to Program">TAKE<span>PST → PGM</span></button>
+        <div class="bus-target">
+          <span>TRANSPORT CONTROLS</span>
+          <div class="mode-switch">
+            <button data-bus="pst" class="active" id="busPstBtn">PST</button>
+            <button data-bus="pgm" id="busPgmBtn">PGM</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bus bus-pst">
+        <div class="bus-label pst"><span class="dot"></span>PREVIEW — CUED</div>
+        <div class="monitor-frame pst-frame">
+          <div class="screws"><span></span><span></span><span></span><span></span></div>
+          <div class="tally on-amber" id="pstTally"><span class="lamp"></span>CUED</div>
+          <div class="screen" id="pstScreen">
+            <video id="previewVideo" playsinline muted hidden></video>
+            <div class="placeholder" id="pstPlaceholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 10l5-3v10l-5-3"/></svg>
+              <small>Nothing cued. Load a clip below or pick from the playlist to prepare it here.</small>
+            </div>
+          </div>
+        </div>
+        <div class="readout" id="pstReadout">
+          <div class="readout-source" id="pstSource">EMPTY</div>
+          <div class="readout-tc" id="pstTc">00<span class="colon">:</span>00<span class="colon">:</span>00<span class="colon">:</span>00</div>
+          <div class="readout-status" id="pstStatus">STOP</div>
         </div>
       </div>
     </div>
 
-    <div class="vfd" id="vfd">
-      <div class="vfd-source" id="vfdSource">NO SOURCE</div>
-      <div class="vfd-tc" id="vfdTc">00<span class="colon">:</span>00<span class="colon">:</span>00<span class="colon">:</span>00</div>
-      <div class="vfd-right">
-        <div class="vfd-status" id="vfdStatus">STOP</div>
-        <div class="vfd-delay" id="vfdDelay">DELAY OFF</div>
-      </div>
-    </div>
-
-    <div>
-      <div class="source-tabs">
-        <button class="active" data-tab="file" id="tabFileBtn">FILE / PLAYLIST</button>
-        <button data-tab="live" id="tabLiveBtn">LIVE / DELAY</button>
-      </div>
-
-      <div class="source-panel" id="filePanel">
-        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Load video file">
-          <strong>Drop a video file here</strong> or click to browse — MP4/MOV/WebM play back instantly. MXF, AVI, WMV, MTS/M2TS and anything else convert automatically via the built-in engine.
-        </div>
-        <input type="file" id="fileInput" accept="video/*,.mxf,.avi,.wmv,.mts,.m2ts,.ts,.mkv" hidden>
-        <input type="file" id="fileInputMulti" accept="video/*,.mxf,.avi,.wmv,.mts,.m2ts,.ts,.mkv" multiple hidden>
-        <div class="row">
-          <button class="btn ghost" id="addToPlaylistBtn" hidden>+ Add files to playlist</button>
-        </div>
-        <div class="engine-bar" id="engineBar" hidden><span id="engineBarFill"></span></div>
-        <span class="hint" id="formatHint"></span>
-      </div>
-
-      <div class="source-panel" id="livePanel" hidden>
-        <div class="row">
-          <button class="btn" id="startCamBtn">Start camera</button>
-          <button class="btn ghost" id="stopCamBtn" disabled>Stop camera</button>
-          <span class="hint">Feeds the monitor through a delay buffer, like a confidence/preview monitor watching your own delayed output.</span>
-        </div>
-        <div class="row" id="liveError" hidden></div>
-      </div>
-    </div>
-
+    <!-- ================= TRANSPORT (targets PGM or PST, per toggle above) ================= -->
     <div class="transport-wrap">
       <div class="buttons">
         <button class="tbtn" id="btnRew" title="Rewind" aria-label="Rewind"><svg viewBox="0 0 24 24"><path d="M11 6 3 12l8 6zM21 6l-8 6 8 6z"/></svg></button>
@@ -382,26 +455,60 @@
         <div class="jog-mark" id="jogMark"></div>
         <div class="dial-label">SHUTTLE · JOG</div>
       </div>
+    </div>
+    <div class="transport-caption">Transport is currently controlling <b id="busCaption">PREVIEW</b> — switch with the PST/PGM toggle above.</div>
 
-      <div class="buttons">
-        <button class="tbtn rec" id="btnRec" title="Record (live source)" aria-label="Record" disabled><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></button>
+    <!-- ================= SOURCE PANELS ================= -->
+    <div class="panels">
+      <div class="panel">
+        <h2>FILE / PLAYLIST <span style="font-weight:400;text-transform:none;letter-spacing:0;">stages to Preview</span></h2>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Load video file">
+          <strong>Drop a video file here</strong> or click to browse — MP4/MOV/WebM play back instantly. MXF, AVI, WMV, MTS/M2TS and anything else convert automatically via the built-in engine.
+        </div>
+        <input type="file" id="fileInput" accept="video/*,.mxf,.avi,.wmv,.mts,.m2ts,.ts,.mkv" hidden>
+        <input type="file" id="fileInputMulti" accept="video/*,.mxf,.avi,.wmv,.mts,.m2ts,.ts,.mkv" multiple hidden>
+        <div class="row">
+          <button class="btn ghost" id="addToPlaylistBtn" hidden>+ Add files to playlist</button>
+        </div>
+        <div class="engine-bar" id="engineBar" hidden><span id="engineBarFill"></span></div>
+        <span class="hint" id="formatHint"></span>
+
+        <div class="playlist" id="playlistSection" hidden>
+          <h2 style="border-top:1px solid var(--divider);padding-top:10px;">PLAYLIST <button class="btn ghost" id="addFilesBtn" style="padding:4px 10px;font-size:.68rem;">+ Add files</button></h2>
+          <div class="pl-items" id="plItems"></div>
+        </div>
       </div>
-    </div>
 
-    <div class="playlist" id="playlistSection" hidden>
-      <h2>PLAYLIST <button class="btn ghost" id="addFilesBtn" style="padding:4px 10px;font-size:.68rem;">+ Add files</button></h2>
-      <div class="pl-items" id="plItems"></div>
-    </div>
-
-    <div id="reviewSection" hidden style="padding:0 4px;">
-      <div class="hint" style="margin-bottom:6px;">Recorded take:</div>
-      <video id="reviewVideo" controls style="width:100%;border-radius:6px;background:#000;"></video>
+      <div class="panel">
+        <h2>LIVE CAMERA <span style="font-weight:400;text-transform:none;letter-spacing:0;">confidence monitor &amp; delayed record</span></h2>
+        <div class="monitor-frame">
+          <div class="screws"><span></span><span></span><span></span><span></span></div>
+          <div class="tally on-red" id="recTally"><span class="lamp"></span>REC</div>
+          <div class="tally on-amber right" id="delayTally"><span class="lamp"></span>DELAY</div>
+          <div class="screen small" id="liveScreenWrap">
+            <canvas id="liveCanvas" hidden></canvas>
+            <div class="placeholder" id="livePlaceholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>
+              <small>Start the camera for a delayed confidence monitor, independent of the PGM/PST switcher.</small>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn" id="startCamBtn">Start camera</button>
+          <button class="btn ghost" id="stopCamBtn" disabled>Stop camera</button>
+        </div>
+        <div class="row" id="liveError" hidden></div>
+        <div id="reviewSection" hidden>
+          <div class="hint" style="margin-bottom:6px;">Recorded take:</div>
+          <video id="reviewVideo" controls style="width:100%;border-radius:6px;background:#000;"></video>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="finePrint">
-    <b>Universal ingest</b> runs a full FFmpeg build compiled to WebAssembly, entirely in this tab — nothing uploads anywhere. First use downloads the engine once (~30MB); a remux is usually seconds, a full transcode of a long clip can take minutes on modest hardware. &nbsp;·&nbsp;
-    <b>Blackmagic / AJA output</b> selections in Settings configure an output profile only — real SDI/HDMI hardware output still needs this deck embedded in a native app or Electron shell with the vendor driver installed.
+    <b>Universal ingest</b> runs a full FFmpeg build compiled to WebAssembly, entirely in this tab — nothing uploads anywhere. &nbsp;·&nbsp;
+    <b>Preview</b> is always browser-only and muted. <b>Program</b> audio/video is what a native/Electron shell with the vendor driver would hand off to a Blackmagic or AJA card — a web page alone still can't address SDI/HDMI hardware directly.
   </div>
 </div>
 
@@ -434,11 +541,12 @@
     </section>
 
     <section>
-      <h3>VIDEO OUTPUT DRIVER</h3>
+      <h3>PROGRAM OUTPUT DRIVER</h3>
+      <div class="note">Preview is always shown in this browser only, and is never sent to hardware. The selections below apply to <b>Program</b> — the on-air bus — and configure the output profile handed off when this deck runs inside a native/Electron shell with the vendor's driver installed.</div>
       <label class="field">Output device
         <select id="outputDeviceSelect">
           <optgroup label="Preview">
-            <option value="browser">Browser display (this screen)</option>
+            <option value="browser">Browser display only</option>
           </optgroup>
           <optgroup label="Blackmagic Design">
             <option value="bm-decklink-8k">DeckLink 8K Pro</option>
@@ -485,7 +593,7 @@
     </section>
 
     <section>
-      <h3>DELAY MONITOR</h3>
+      <h3>DELAY MONITOR (live camera)</h3>
       <label class="field" style="flex-direction:row;align-items:center;gap:8px;">
         <input type="checkbox" id="delayEnable"> Enable delayed monitor when recording
       </label>
@@ -497,7 +605,7 @@
         <input type="number" id="delaySeconds" min="0" max="30" step="0.1" value="2.0" disabled>
       </label>
       <div class="note">
-        <b>Auto</b> estimates a safe delay from this device's own rendering performance (a few seconds of frame-timing samples). <b>Manual</b> lets you fix an exact delay for cueing against a downstream broadcast or caption delay.
+        <b>Auto</b> estimates a safe delay from this device's own rendering performance. <b>Manual</b> lets you fix an exact delay. This delay applies only to the live-camera confidence monitor, not to Program.
       </div>
     </section>
   </div>
@@ -518,21 +626,23 @@
 
   /* ---------------- elements ---------------- */
   const $ = id => document.getElementById(id);
-  const video = $('fileVideo');
-  const placeholder = $('placeholder');
-  const screen = $('screen');
+  const programVideo = $('programVideo'), previewVideo = $('previewVideo');
+  const pgmScreen = $('pgmScreen'), pstScreen = $('pstScreen');
+  const pgmPlaceholder = $('pgmPlaceholder'), pstPlaceholder = $('pstPlaceholder');
+  const pgmTally = $('pgmTally'), pstTally = $('pstTally'), pgmOutTag = $('pgmOutTag');
+  const pgmSource = $('pgmSource'), pgmTc = $('pgmTc'), pgmStatus = $('pgmStatus'), pgmReadout = $('pgmReadout');
+  const pstSource = $('pstSource'), pstTc = $('pstTc'), pstStatus = $('pstStatus'), pstReadout = $('pstReadout');
+  const takeBtn = $('takeBtn'), busPstBtn = $('busPstBtn'), busPgmBtn = $('busPgmBtn'), busCaption = $('busCaption');
+
   const liveCanvas = $('liveCanvas');
   const liveCtx = liveCanvas.getContext('2d');
-
-  const vfd = $('vfd'), vfdSource = $('vfdSource'), vfdTc = $('vfdTc'), vfdStatus = $('vfdStatus'), vfdDelay = $('vfdDelay');
+  const livePlaceholder = $('livePlaceholder');
   const recTally = $('recTally'), delayTally = $('delayTally');
 
   const modeBasicBtn = $('modeBasicBtn'), modeAdvBtn = $('modeAdvBtn');
   const playlistSection = $('playlistSection'), plItems = $('plItems');
   const addFilesBtn = $('addFilesBtn'), addToPlaylistBtn = $('addToPlaylistBtn');
 
-  const tabFileBtn = $('tabFileBtn'), tabLiveBtn = $('tabLiveBtn');
-  const filePanel = $('filePanel'), livePanel = $('livePanel');
   const dropzone = $('dropzone'), fileInput = $('fileInput'), fileInputMulti = $('fileInputMulti');
   const formatHint = $('formatHint');
   const engineBar = $('engineBar'), engineBarFill = $('engineBarFill');
@@ -540,7 +650,7 @@
   const startCamBtn = $('startCamBtn'), stopCamBtn = $('stopCamBtn'), liveError = $('liveError');
 
   const btnPlay = $('btnPlay'), btnStop = $('btnStop'), btnFf = $('btnFf'), btnRew = $('btnRew');
-  const btnJogBack = $('btnJogBack'), btnJogFwd = $('btnJogFwd'), btnRec = $('btnRec');
+  const btnJogBack = $('btnJogBack'), btnJogFwd = $('btnJogFwd');
 
   const dial = $('dial'), shuttleMark = $('shuttleMark');
   const jogDisc = $('jogDisc'), jogMark = $('jogMark');
@@ -552,12 +662,14 @@
 
   const reviewSection = $('reviewSection'), reviewVideo = $('reviewVideo');
 
+  const meterMaskL = $('meterMaskL'), meterMaskR = $('meterMaskR'), meterPeakL = $('meterPeakL'), meterPeakR = $('meterPeakR');
+  const audioGainInput = $('audioGain'), audioGainVal = $('audioGainVal');
+
   /* ---------------- state ---------------- */
   const state = {
     mode: prefs.mode || 'basic',
     fps: parseFloat(prefs.fps) || 29.97,
-    source: 'file', // 'file' | 'live'
-    status: 'STOP',
+    controlBus: 'pst', // 'pst' | 'pgm' — which bus the transport buttons/dial act on
     playlist: [], // {name, file, url, converted}
     currentIndex: -1,
     shuttleSpeed: 0,
@@ -588,20 +700,17 @@
     const hh = Math.floor(totalSeconds/3600);
     return {hh,mm,ss,ff};
   }
-
-  function renderTC(t){
+  function renderTC(el, t){
     const tc = formatTC(t, state.fps);
-    vfdTc.innerHTML = pad(tc.hh)+'<span class="colon">:</span>'+pad(tc.mm)+'<span class="colon">:</span>'+pad(tc.ss)+'<span class="colon">:</span>'+pad(tc.ff);
+    el.innerHTML = pad(tc.hh)+'<span class="colon">:</span>'+pad(tc.mm)+'<span class="colon">:</span>'+pad(tc.ss)+'<span class="colon">:</span>'+pad(tc.ff);
   }
-
-  function setStatus(s){
-    state.status = s;
-    vfdStatus.textContent = s;
-    vfd.classList.toggle('paused', s === 'STOP');
-  }
-
-  function activeMedia(){ return state.source === 'file' ? video : null; }
   function extOf(name){ const m = /\.([a-z0-9]+)$/i.exec(name||''); return m ? m[1].toLowerCase() : ''; }
+
+  function setBusStatus(bus, s){
+    if(bus==='pgm'){ pgmStatus.textContent = s; pgmReadout.classList.toggle('paused', s==='STOP'); }
+    else { pstStatus.textContent = s; pstReadout.classList.toggle('paused', s==='STOP'); }
+  }
+  function activeMedia(){ return state.controlBus === 'pgm' ? programVideo : previewVideo; }
 
   /* ---------------- mode (basic / advanced) ---------------- */
   function applyMode(){
@@ -615,30 +724,28 @@
   modeBasicBtn.addEventListener('click', ()=>{ state.mode='basic'; applyMode(); });
   modeAdvBtn.addEventListener('click', ()=>{ state.mode='advanced'; applyMode(); });
 
-  /* ---------------- source tabs ---------------- */
-  function setSourceTab(tab){
-    state.source = tab;
-    tabFileBtn.classList.toggle('active', tab==='file');
-    tabLiveBtn.classList.toggle('active', tab==='live');
-    filePanel.hidden = tab !== 'file';
-    livePanel.hidden = tab !== 'live';
-    video.hidden = tab !== 'file';
-    liveCanvas.hidden = tab !== 'live';
-    btnRec.disabled = tab !== 'live' || !state.liveStream;
-    updatePlaceholder();
+  /* ---------------- control bus toggle ---------------- */
+  function setControlBus(bus){
+    stopShuttleLoop();
+    state.controlBus = bus;
+    busPstBtn.classList.toggle('active', bus==='pst');
+    busPgmBtn.classList.toggle('active', bus==='pgm');
+    busCaption.textContent = bus==='pgm' ? 'PROGRAM' : 'PREVIEW';
   }
-  tabFileBtn.addEventListener('click', ()=>setSourceTab('file'));
-  tabLiveBtn.addEventListener('click', ()=>setSourceTab('live'));
+  busPstBtn.addEventListener('click', ()=>setControlBus('pst'));
+  busPgmBtn.addEventListener('click', ()=>setControlBus('pgm'));
 
-  function updatePlaceholder(){
-    const hasFile = state.source==='file' && video.currentSrc;
-    const hasLive = state.source==='live' && state.liveStream;
-    placeholder.hidden = !!(hasFile || hasLive);
+  function updatePlaceholders(){
+    pgmPlaceholder.hidden = !!programVideo.currentSrc;
+    pstPlaceholder.hidden = !!previewVideo.currentSrc;
+    pgmTally.classList.toggle('on-red', !programVideo.paused && !!programVideo.currentSrc);
+    pstTally.classList.toggle('on-amber', !!previewVideo.currentSrc);
   }
-
-  /* ---------------- monitor aspect ratio ---------------- */
-  function setMonitorAspect(w,h){
-    if(w>0 && h>0) screen.style.aspectRatio = w+' / '+h;
+  function setMonitorAspect(screenEl, w, h){
+    if(w>0 && h>0) screenEl.style.aspectRatio = w+' / '+h;
+  }
+  function updateTakeButtonState(){
+    takeBtn.disabled = !previewVideo.currentSrc;
   }
 
   /* ================= universal ingest engine (FFmpeg.wasm) ================= */
@@ -666,18 +773,25 @@
       if(!window.FFmpegWASM){
         throw new Error('FFmpeg engine script did not load — check that this page has outbound network access to unpkg.com (or point the <script src> at a self-hosted copy for an air-gapped deployment).');
       }
-      setStatus('LOADING');
-      setEngineProgress(5, 'Loading conversion engine (~30MB, first time only)…');
+      if(!window.FFmpegUtil){
+        throw new Error('FFmpeg util script did not load — the @ffmpeg/util <script> tag is required to convert the engine files to blob: URLs before use.');
+      }
+      setEngineProgress(3, 'Loading conversion engine (~30MB, first time only)…');
       const { FFmpeg } = window.FFmpegWASM;
+      const { toBlobURL } = window.FFmpegUtil;
       const instance = new FFmpeg();
+      let mode = 'remux';
       instance.on('progress', ({ progress })=>{
         const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
-        setEngineProgress(pct, (state.status==='REMUX' ? 'Remuxing… ' : 'Transcoding… ') + pct + '%');
+        setEngineProgress(pct, (mode==='remux' ? 'Remuxing… ' : 'Transcoding… ') + pct + '%');
       });
-      await instance.load({
-        coreURL: FFMPEG_CORE_BASE + '/ffmpeg-core.js',
-        wasmURL: FFMPEG_CORE_BASE + '/ffmpeg-core.wasm'
-      });
+      instance._setMode = m=>{ mode = m; };
+      // Browsers refuse to construct a Worker from a cross-origin script URL, and the
+      // FFmpeg core spawns one internally — so fetch the core files and hand ffmpeg.load()
+      // blob: URLs (always same-origin) instead of the raw unpkg URLs.
+      const coreURL = await toBlobURL(FFMPEG_CORE_BASE + '/ffmpeg-core.js', 'text/javascript');
+      const wasmURL = await toBlobURL(FFMPEG_CORE_BASE + '/ffmpeg-core.wasm', 'application/wasm');
+      await instance.load({ coreURL, wasmURL });
       ffmpegInstance = instance;
       return instance;
     })();
@@ -697,7 +811,7 @@
       const bytes = new Uint8Array(await file.arrayBuffer());
       await eng.writeFile(inName, bytes);
 
-      setStatus('REMUX');
+      eng._setMode('remux');
       setEngineProgress(2, 'Remuxing (fast path, no re-encode)…');
       let code = -1;
       try{
@@ -709,7 +823,7 @@
 
       if(!data || !data.length){
         try{ await eng.deleteFile(outName); }catch(e){}
-        setStatus('TRANSCODE');
+        eng._setMode('transcode');
         setEngineProgress(2, 'Fast remux didn\'t work — transcoding video (can take a while for long clips)…');
         code = await eng.exec(['-i', inName, '-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac','-movflags','+faststart', outName]);
         if(code !== 0) throw new Error('FFmpeg exited with code ' + code);
@@ -720,23 +834,20 @@
       try{ await eng.deleteFile(outName); }catch(e){}
 
       const blob = new Blob([data.buffer], { type:'video/mp4' });
-      clearEngineProgress('Converted "' + file.name + '" → playable MP4.');
-      setStatus('STOP');
+      clearEngineProgress('Converted "' + file.name + '" → cued on Preview.');
       return URL.createObjectURL(blob);
     }catch(err){
       clearEngineProgress('Conversion failed: ' + (err && err.message ? err.message : err) + ' — the file may be corrupt or use a codec this engine build can\'t decode.');
-      setStatus('STOP');
       return null;
     }
   }
 
-  /* ---------------- file loading ---------------- */
+  /* ---------------- file loading → always stages to PREVIEW ---------------- */
   function looksLikeVideo(file){
     if(file.type && file.type.startsWith('video/')) return true;
     const known = ['mp4','mov','webm','ogg','ogv','mkv','m4v','avi','wmv','mxf','mts','m2ts','ts','flv','3gp'];
     return known.includes(extOf(file.name));
   }
-
   async function resolvePlayableUrl(file){
     if(ffmpegOnlyExt.includes(extOf(file.name))){
       return await convertToPlayable(file);
@@ -744,42 +855,50 @@
     return URL.createObjectURL(file);
   }
 
+  async function stageToPreview(file){
+    lastLoadedFile = file;
+    pstSource.textContent = file.name.toUpperCase();
+    const url = await resolvePlayableUrl(file);
+    if(!url) return;
+    previewVideo.src = url;
+    previewVideo.load();
+  }
   async function loadFile(file, addOnly){
     if(addOnly){
       state.playlist.push({ name:file.name, file, url:null, converted:false });
       renderPlaylist();
       return;
     }
-    lastLoadedFile = file;
-    setSourceTab('file');
-    vfdSource.textContent = file.name.toUpperCase();
-    vfdSource.classList.remove('live');
-    const url = await resolvePlayableUrl(file);
-    if(!url) return;
-    video.src = url;
-    video.load();
+    setControlBus('pst');
+    await stageToPreview(file);
   }
 
-  video.addEventListener('loadedmetadata', ()=>{
-    setMonitorAspect(video.videoWidth, video.videoHeight);
-    updatePlaceholder();
+  previewVideo.addEventListener('loadedmetadata', ()=>{
+    setMonitorAspect(pstScreen, previewVideo.videoWidth, previewVideo.videoHeight);
+    updatePlaceholders();
+    updateTakeButtonState();
   });
-  video.addEventListener('error', async ()=>{
+  previewVideo.addEventListener('error', async ()=>{
     if(lastLoadedFile && !lastLoadedFile._triedConvert && !ffmpegOnlyExt.includes(extOf(lastLoadedFile.name))){
       lastLoadedFile._triedConvert = true;
       clearEngineProgress('Native playback failed — falling back to in-browser conversion…');
       const url = await convertToPlayable(lastLoadedFile);
-      if(url){ video.src = url; video.load(); }
+      if(url){ previewVideo.src = url; previewVideo.load(); }
     } else if(lastLoadedFile){
       clearEngineProgress('This file could not be played even after conversion — it may be corrupt or use a codec this engine build can\'t handle.');
     }
   });
-  video.addEventListener('ended', ()=>{
-    setStatus('STOP');
-    if(state.mode==='advanced' && state.currentIndex>=0 && state.currentIndex < state.playlist.length-1){
-      playPlaylistIndex(state.currentIndex+1);
-    }
+  programVideo.addEventListener('loadedmetadata', ()=>{
+    setMonitorAspect(pgmScreen, programVideo.videoWidth, programVideo.videoHeight);
+    updatePlaceholders();
   });
+  programVideo.addEventListener('ended', ()=>{
+    setBusStatus('pgm','STOP');
+    updatePlaceholders();
+    if(previewVideo.currentSrc){ takeToProgram(); } // continuous playout if the next clip was already staged
+  });
+  programVideo.addEventListener('play', ()=>updatePlaceholders());
+  programVideo.addEventListener('pause', ()=>updatePlaceholders());
 
   dropzone.addEventListener('click', ()=>fileInput.click());
   dropzone.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') fileInput.click(); });
@@ -792,7 +911,7 @@
     if(!files.length) return;
     if(state.mode==='advanced' && files.length>1){
       files.forEach(f=>loadFile(f, true));
-      if(state.currentIndex===-1) playPlaylistIndex(0);
+      if(state.currentIndex===-1) cuePlaylistIndex(0);
     } else {
       loadFile(files[0], false);
     }
@@ -802,10 +921,10 @@
   addFilesBtn.addEventListener('click', ()=>fileInputMulti.click());
   fileInputMulti.addEventListener('change', e=>{
     Array.from(e.target.files).forEach(f=>loadFile(f, true));
-    if(state.currentIndex===-1 && state.playlist.length) playPlaylistIndex(0);
+    if(state.currentIndex===-1 && state.playlist.length) cuePlaylistIndex(0);
   });
 
-  /* ---------------- playlist (advanced) ---------------- */
+  /* ---------------- playlist (advanced) — clicking an item cues it to PREVIEW ---------------- */
   function renderPlaylist(){
     plItems.innerHTML = '';
     if(!state.playlist.length){
@@ -822,7 +941,7 @@
         '<button class="mini" data-act="up" title="Move up">&#8593;</button>'+
         '<button class="mini" data-act="down" title="Move down">&#8595;</button>'+
         '<button class="mini" data-act="remove" title="Remove">&#10005;</button>';
-      row.querySelector('.nm').addEventListener('click', ()=>playPlaylistIndex(i));
+      row.querySelector('.nm').addEventListener('click', ()=>cuePlaylistIndex(i));
       row.querySelectorAll('.mini').forEach(btn=>{
         btn.addEventListener('click', ev=>{
           ev.stopPropagation();
@@ -848,14 +967,13 @@
     else if(state.currentIndex>i) state.currentIndex--;
     renderPlaylist();
   }
-  async function playPlaylistIndex(i){
+  async function cuePlaylistIndex(i){
     const item = state.playlist[i];
     if(!item) return;
     state.currentIndex = i;
-    setSourceTab('file');
     lastLoadedFile = item.file;
-    vfdSource.textContent = item.name.toUpperCase();
-    vfdSource.classList.remove('live');
+    pstSource.textContent = item.name.toUpperCase();
+    setControlBus('pst');
     renderPlaylist();
     if(!item.url){
       item.url = await resolvePlayableUrl(item.file);
@@ -863,18 +981,49 @@
       item.converted = true;
       renderPlaylist();
     }
-    video.src = item.url;
-    video.load();
-    video.addEventListener('loadeddata', function once(){ video.removeEventListener('loadeddata', once); transportPlay(); }, {once:true});
+    previewVideo.src = item.url;
+    previewVideo.load();
   }
 
-  /* ---------------- transport engine ---------------- */
+  /* ---------------- TAKE: send Preview to Program ---------------- */
+  function takeToProgram(){
+    if(!previewVideo.currentSrc) return;
+    ensureAudioGraph();
+    const url = previewVideo.currentSrc;
+    const startAt = previewVideo.currentTime;
+    const name = pstSource.textContent;
+    programVideo.src = url;
+    programVideo.load();
+    programVideo.addEventListener('loadeddata', function once(){
+      programVideo.removeEventListener('loadeddata', once);
+      try{ programVideo.currentTime = startAt; }catch(e){}
+      programVideo.playbackRate = 1;
+      programVideo.play().catch(()=>{});
+      setBusStatus('pgm','PLAY');
+      updatePlaceholders();
+    }, {once:true});
+    pgmSource.textContent = name;
+
+    previewVideo.pause();
+    previewVideo.removeAttribute('src');
+    previewVideo.load();
+    pstSource.textContent = 'EMPTY';
+    updatePlaceholders();
+    updateTakeButtonState();
+
+    if(state.mode==='advanced' && state.currentIndex>=0 && state.currentIndex < state.playlist.length-1){
+      cuePlaylistIndex(state.currentIndex+1);
+    }
+    setControlBus('pst');
+  }
+  takeBtn.addEventListener('click', takeToProgram);
+
+  /* ---------------- transport engine (targets whichever bus is selected) ---------------- */
   function stopShuttleLoop(){
     if(state.shuttleRAF){ cancelAnimationFrame(state.shuttleRAF); state.shuttleRAF = null; }
     state.shuttleSpeed = 0;
     if(activeMedia()) activeMedia().playbackRate = 1;
   }
-
   function shuttleTick(){
     const m = activeMedia();
     if(m){
@@ -895,31 +1044,34 @@
 
   function transportPlay(){
     stopShuttleLoop();
+    ensureAudioGraph();
     const m = activeMedia();
     if(m){ m.playbackRate = 1; m.play().catch(()=>{}); }
-    setStatus('PLAY');
+    setBusStatus(state.controlBus, 'PLAY');
   }
   function transportStop(){
     stopShuttleLoop();
     const m = activeMedia();
     if(m) m.pause();
-    setStatus('STOP');
+    setBusStatus(state.controlBus, 'STOP');
   }
   const ffLevels = [2,4,8];
   let ffIndex = -1, rewIndex = -1;
   function transportFF(){
-    ffIndex = state.status.indexOf('FF')===0 && ffIndex<ffLevels.length-1 ? ffIndex+1 : 0;
+    const cur = state.controlBus==='pgm' ? pgmStatus.textContent : pstStatus.textContent;
+    ffIndex = cur.indexOf('FF')===0 && ffIndex<ffLevels.length-1 ? ffIndex+1 : 0;
     rewIndex = -1;
     state.shuttleSpeed = ffLevels[ffIndex];
     startShuttleLoop();
-    setStatus('FF x'+ffLevels[ffIndex]);
+    setBusStatus(state.controlBus, 'FF x'+ffLevels[ffIndex]);
   }
   function transportRew(){
-    rewIndex = state.status.indexOf('REW')===0 && rewIndex<ffLevels.length-1 ? rewIndex+1 : 0;
+    const cur = state.controlBus==='pgm' ? pgmStatus.textContent : pstStatus.textContent;
+    rewIndex = cur.indexOf('REW')===0 && rewIndex<ffLevels.length-1 ? rewIndex+1 : 0;
     ffIndex = -1;
     state.shuttleSpeed = -ffLevels[rewIndex];
     startShuttleLoop();
-    setStatus('REW x'+ffLevels[rewIndex]);
+    setBusStatus(state.controlBus, 'REW x'+ffLevels[rewIndex]);
   }
   function stepFrame(dir){
     stopShuttleLoop();
@@ -927,7 +1079,7 @@
     if(!m) return;
     m.pause();
     m.currentTime = Math.max(0, m.currentTime + dir*(1/state.fps));
-    setStatus('JOG');
+    setBusStatus(state.controlBus, 'JOG');
   }
 
   btnPlay.addEventListener('click', ()=>{ ffIndex=-1; rewIndex=-1; transportPlay(); });
@@ -948,9 +1100,10 @@
 
   document.addEventListener('keydown', e=>{
     if(document.activeElement && ['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
-    if(e.code==='Space'){ e.preventDefault(); state.status==='PLAY' ? transportStop() : transportPlay(); }
+    if(e.code==='Space'){ e.preventDefault(); (state.controlBus==='pgm'?pgmStatus:pstStatus).textContent==='PLAY' ? transportStop() : transportPlay(); }
     else if(e.code==='ArrowLeft'){ stepFrame(-1); }
     else if(e.code==='ArrowRight'){ stepFrame(1); }
+    else if(e.code==='Enter'){ takeToProgram(); }
   });
 
   /* ---------------- shuttle / jog dial ---------------- */
@@ -1001,7 +1154,7 @@
       state.shuttleSpeed = 0;
       shuttleMark.style.transform = 'rotate(0deg)';
       stopShuttleLoop();
-      setStatus(activeMedia() && !activeMedia().paused ? 'PLAY' : 'STOP');
+      setBusStatus(state.controlBus, activeMedia() && !activeMedia().paused ? 'PLAY' : 'STOP');
     }
     state.jogDragging = false;
   }
@@ -1021,20 +1174,17 @@
     }
     state.shuttleSpeed = speed;
     shuttleMark.style.transform = 'rotate('+clamped+'deg)';
-    setStatus(speed===0 ? 'STOP' : (speed>0?'SHUTTLE >> ':'SHUTTLE << ')+Math.abs(speed).toFixed(1)+'x');
+    setBusStatus(state.controlBus, speed===0 ? 'STOP' : (speed>0?'SHUTTLE >> ':'SHUTTLE << ')+Math.abs(speed).toFixed(1)+'x');
   }
 
-  /* ---------------- render loop (timecode) ---------------- */
+  /* ---------------- render loop (timecode + audio meters) ---------------- */
   function tick(){
-    const m = activeMedia();
-    if(m && !isNaN(m.duration)) renderTC(m.currentTime);
-    else if(state.source==='live') renderTC((performance.now())/1000);
+    if(programVideo.currentSrc && !isNaN(programVideo.duration)) renderTC(pgmTc, programVideo.currentTime);
+    if(previewVideo.currentSrc && !isNaN(previewVideo.duration)) renderTC(pstTc, previewVideo.currentTime);
+    updateAudioMeters();
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
-
-  video.addEventListener('play', ()=>{ if(!state.shuttleRAF) setStatus('PLAY'); });
-  video.addEventListener('pause', ()=>{ if(!state.shuttleRAF && state.status==='PLAY') setStatus('STOP'); });
 
   /* ---------------- settings modal ---------------- */
   function openSettings(){ modalVeil.hidden = false; }
@@ -1050,22 +1200,21 @@
   });
 
   const driverNotes = {
-    browser: 'Renders straight to this screen — no external hardware involved.',
+    browser: 'Program renders straight to this screen — no external hardware involved.',
     default: '<b>No direct browser access.</b> Selecting a Blackmagic or AJA device configures the output profile (format & color space) this deck will hand off when it is embedded in a native app or Electron shell running the vendor\'s desktop driver — a web page alone cannot address an SDI/HDMI capture card.'
   };
   function updateDriverNote(){
     const v = outputDeviceSelect.value;
     driverNote.innerHTML = v==='browser' ? driverNotes.browser : driverNotes.default;
+    pgmOutTag.textContent = v==='browser' ? 'OUT → BROWSER' : 'OUT → ' + outputDeviceSelect.options[outputDeviceSelect.selectedIndex].text.toUpperCase();
   }
   outputDeviceSelect.addEventListener('change', updateDriverNote);
   updateDriverNote();
 
-  /* ---------------- delay monitor ---------------- */
+  /* ---------------- delay monitor (live camera only) ---------------- */
   function refreshDelayUI(){
     delaySeconds.disabled = !delayAuto.checked;
-    vfdDelay.textContent = delayEnable.checked ? ('DELAY '+(state.delayMs/1000).toFixed(1)+'s') : 'DELAY OFF';
-    vfdDelay.classList.toggle('on', delayEnable.checked);
-    delayTally.classList.toggle('on', delayEnable.checked && state.source==='live');
+    delayTally.classList.toggle('on-amber', delayEnable.checked && !!state.liveStream);
   }
   async function autoCalibrateDelay(){
     return new Promise(resolve=>{
@@ -1104,7 +1253,7 @@
   });
   refreshDelayUI();
 
-  /* ---------------- live camera + delay ring buffer ---------------- */
+  /* ---------------- live camera + delay ring buffer (independent of PGM/PST) ---------------- */
   let captureRAF = null, renderRAF = null, lastCaptureAt = 0;
   const liveVideo = document.createElement('video');
   liveVideo.muted = true; liveVideo.playsInline = true;
@@ -1120,13 +1269,12 @@
       const settings = track.getSettings ? track.getSettings() : {};
       const w = settings.width||16, h = settings.height||9;
       liveCanvas.width = w; liveCanvas.height = h;
-      setMonitorAspect(w,h);
-      vfdSource.textContent = 'LIVE CAMERA';
-      vfdSource.classList.add('live');
-      setSourceTab('live');
-      startCamBtn.disabled = true; stopCamBtn.disabled = false; btnRec.disabled = false;
+      liveCanvas.hidden = false;
+      livePlaceholder.hidden = true;
+      startCamBtn.disabled = true; stopCamBtn.disabled = false;
       startCaptureLoop();
       startRenderLoop();
+      refreshDelayUI();
     }catch(err){
       liveError.hidden = false;
       liveError.textContent = 'Camera unavailable (' + (err && err.message ? err.message : 'permission denied') + ').';
@@ -1138,9 +1286,10 @@
     if(renderRAF) cancelAnimationFrame(renderRAF);
     state.ringBuffer.forEach(f=>{ try{ f.bitmap.close(); }catch(e){} });
     state.ringBuffer = [];
-    startCamBtn.disabled = false; stopCamBtn.disabled = true; btnRec.disabled = true;
+    startCamBtn.disabled = false; stopCamBtn.disabled = true;
+    liveCanvas.hidden = true; livePlaceholder.hidden = false;
     if(state.recording) stopRecording();
-    updatePlaceholder();
+    refreshDelayUI();
   }
   startCamBtn.addEventListener('click', startCamera);
   stopCamBtn.addEventListener('click', stopCamera);
@@ -1177,13 +1326,12 @@
       } else if(state.ringBuffer.length){
         liveCtx.drawImage(state.ringBuffer[state.ringBuffer.length-1].bitmap, 0, 0, liveCanvas.width, liveCanvas.height);
       }
-      updatePlaceholder();
       renderRAF = requestAnimationFrame(loop);
     }
     renderRAF = requestAnimationFrame(loop);
   }
 
-  /* ---------------- record ---------------- */
+  /* ---------------- record (live camera) ---------------- */
   function startRecording(){
     if(!state.liveStream) return;
     state.recordedChunks = [];
@@ -1203,21 +1351,75 @@
     };
     state.mediaRecorder.start();
     state.recording = true;
-    btnRec.classList.add('lit');
-    recTally.classList.add('on');
+    recTally.classList.add('on-red');
   }
   function stopRecording(){
     if(state.mediaRecorder && state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
     state.recording = false;
-    btnRec.classList.remove('lit');
-    recTally.classList.remove('on');
+    recTally.classList.remove('on-red');
   }
-  btnRec.addEventListener('click', ()=>{ state.recording ? stopRecording() : startRecording(); });
+
+  /* ---------------- Program audio: gain + stereo VU meters ---------------- */
+  let audioCtx = null, gainNode = null, analyserL = null, analyserR = null;
+  let bufL = null, bufR = null;
+  const meterState = { l:0, r:0, peakL:0, peakR:0 };
+
+  function ensureAudioGraph(){
+    if(audioCtx){ if(audioCtx.state==='suspended') audioCtx.resume(); return; }
+    try{
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(programVideo);
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(audioGainInput.value)||1;
+      const splitter = audioCtx.createChannelSplitter(2);
+      analyserL = audioCtx.createAnalyser(); analyserL.fftSize = 256;
+      analyserR = audioCtx.createAnalyser(); analyserR.fftSize = 256;
+      bufL = new Uint8Array(analyserL.fftSize);
+      bufR = new Uint8Array(analyserR.fftSize);
+      source.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      gainNode.connect(splitter);
+      splitter.connect(analyserL, 0);
+      splitter.connect(analyserR, 1);
+    }catch(e){ /* audio graph optional — meters/gain simply stay idle if unavailable */ }
+  }
+  audioGainInput.addEventListener('input', ()=>{
+    const v = parseFloat(audioGainInput.value);
+    if(gainNode) gainNode.gain.value = v;
+    const db = v>0 ? 20*Math.log10(v) : -Infinity;
+    audioGainVal.textContent = (isFinite(db) ? (db>=0?'+':'')+db.toFixed(1) : '-∞') + ' dB';
+  });
+
+  function readLevel(analyser, buf){
+    if(!analyser) return 0;
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum += v*v; }
+    return Math.sqrt(sum/buf.length);
+  }
+  function applyMeter(maskEl, peakEl, level, peak){
+    const pct = Math.min(100, level*140);
+    maskEl.style.height = (100-pct)+'%';
+    peakEl.style.bottom = Math.min(100, peak*140)+'%';
+  }
+  function updateAudioMeters(){
+    const l = analyserL ? readLevel(analyserL, bufL) : 0;
+    const r = analyserR ? readLevel(analyserR, bufR) : 0;
+    meterState.l = Math.max(l, meterState.l*0.75);
+    meterState.r = Math.max(r, meterState.r*0.75);
+    meterState.peakL = Math.max(l, meterState.peakL*0.985);
+    meterState.peakR = Math.max(r, meterState.peakR*0.985);
+    applyMeter(meterMaskL, meterPeakL, meterState.l, meterState.peakL);
+    applyMeter(meterMaskR, meterPeakR, meterState.r, meterState.peakR);
+  }
 
   /* ---------------- init ---------------- */
   applyMode();
-  setSourceTab('file');
+  setControlBus('pst');
   renderPlaylist();
-  renderTC(0);
+  renderTC(pgmTc, 0);
+  renderTC(pstTc, 0);
+  updatePlaceholders();
+  updateTakeButtonState();
 })();
 </script>
