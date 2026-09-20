@@ -19,7 +19,7 @@
     Cross-Origin-Opener-Policy: same-origin
     Cross-Origin-Embedder-Policy: require-corp
 -->
-<title>Beta Deck</title>
+<title>LBCI Beta Deck</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Share+Tech+Mono&family=Barlow:wght@400;500;600&display=swap">
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
@@ -61,7 +61,8 @@
   .stage{ width:100%; max-width:1180px; display:flex; flex-direction:column; gap:16px; }
 
   /* ---------- masthead ---------- */
-  .masthead{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:0 4px; }
+  .masthead{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:0 4px; }
+  .masthead-logo{ height:44px; width:auto; flex:0 0 auto; }
   .masthead h1{ font-family:'Oswald',sans-serif; font-weight:700; font-size:1.5rem; letter-spacing:.02em; margin:0; }
   .masthead p{ margin:0; color:var(--text-dim); font-size:.85rem; max-width:64ch; }
 
@@ -347,8 +348,9 @@
 
 <div class="stage">
   <div class="masthead">
+    <img class="masthead-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJcAAAEsCAYAAADO5SF7AABIqElEQVR42u29d5ycV3X//273qVO3r3q3ZMmyuruNey/YBJeAySSgDVJmMlEqZoc6nDDy2u0/wKQMDBhu4EEE6mDkD3zAt2ArkxHi7z9v3wAAAAABJRU5ErkJggg==" alt="LBCI">
     <div>
-      <h1>Beta Deck</h1>
+      <h1>LBCI Beta Deck</h1>
       <p>A dual-bus playout deck in the idiom of a professional broadcast switcher paired with a Digital Betacam recorder: cue a clip on Preview, take it to Program when ready. MP4/WebM/MOV play back instantly; MXF, AVI, WMV and anything else convert automatically in the tab.</p>
     </div>
   </div>
@@ -356,7 +358,7 @@
   <div class="deck">
     <div class="deck-top">
       <div class="nameplate">
-        <span class="brand">OPERION PROFESSIONAL VIDEO</span>
+        <span class="brand">LBCI</span>
         <span class="model">DVR&#8209;2100 · PGM/PST PLAYOUT DECK</span>
       </div>
       <div class="top-controls">
@@ -509,6 +511,7 @@
   <div class="finePrint">
     <b>Universal ingest</b> runs a full FFmpeg build compiled to WebAssembly, entirely in this tab — nothing uploads anywhere. &nbsp;·&nbsp;
     <b>Preview</b> is always browser-only and muted. <b>Program</b> audio/video is what a native/Electron shell with the vendor driver would hand off to a Blackmagic or AJA card — a web page alone still can't address SDI/HDMI hardware directly.
+    <br>Designed by Sarkis Semaan
   </div>
 </div>
 
