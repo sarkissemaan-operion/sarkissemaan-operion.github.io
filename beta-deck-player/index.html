@@ -266,6 +266,16 @@
   .transport-caption{ text-align:center; font-family:'Oswald',sans-serif; font-size:.6rem; letter-spacing:.14em; color:var(--text-dim); margin-top:-4px; }
   .transport-caption b{ color:var(--text); }
 
+  /* ---------- output-to-display ---------- */
+  .out-btn{
+    font-family:'Oswald',sans-serif; font-weight:600; font-size:.6rem; letter-spacing:.1em;
+    padding:3px 8px; border-radius:12px; border:1px solid #000; cursor:pointer;
+    background:var(--chassis-2); color:var(--text-dim); margin-left:auto;
+  }
+  .out-btn:hover{ color:var(--text); }
+  .out-picker{ background:var(--bezel); border-radius:6px; padding:8px 10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .out-picker select{ flex:1 1 auto; min-width:160px; }
+
   /* ---------- panels (file/playlist + live) ---------- */
   .panels{ display:flex; gap:16px; flex-wrap:wrap; }
   .panel{ flex:1 1 320px; min-width:260px; background:var(--chassis-3); border:1px solid #000; border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:10px; }
@@ -381,7 +391,7 @@
     <!-- ================= SWITCHER: PGM / TAKE / PST ================= -->
     <div class="bus-pair">
       <div class="bus bus-pgm">
-        <div class="bus-label pgm"><span class="dot"></span>PROGRAM — ON AIR</div>
+        <div class="bus-label pgm"><span class="dot"></span>PROGRAM — ON AIR<button class="out-btn" id="pgmOutputBtn" title="Send Program video to a connected display (e.g. a Blackmagic/AJA monitor-output device)">&#9974; OUTPUT</button></div>
         <div class="monitor-frame pgm-frame">
           <div class="screws"><span></span><span></span><span></span><span></span></div>
           <div class="tally on-red" id="pgmTally"><span class="lamp"></span>ON AIR</div>
@@ -393,6 +403,11 @@
               <small>No signal on Program. Cue a clip on Preview, then TAKE it to air.</small>
             </div>
           </div>
+        </div>
+        <div class="out-picker" id="pgmOutputPicker" hidden>
+          <select id="pgmScreenSelect"></select>
+          <button class="btn ghost" id="pgmScreenGoBtn" style="padding:6px 12px;font-size:.7rem;">Go fullscreen</button>
+          <span class="hint" id="pgmOutputHint" style="flex-basis:100%;"></span>
         </div>
         <div class="readout pgm" id="pgmReadout">
           <div class="readout-source" id="pgmSource">NO SIGNAL</div>
@@ -516,7 +531,7 @@
 
   <div class="finePrint">
     <b>Universal ingest</b> runs a full FFmpeg build compiled to WebAssembly, entirely in this tab — nothing uploads anywhere. &nbsp;·&nbsp;
-    <b>Preview</b> is always browser-only and muted. <b>Program</b> audio/video is what a native/Electron shell with the vendor driver would hand off to a Blackmagic or AJA card — a web page alone still can't address SDI/HDMI hardware directly.
+    <b>Preview</b> is always browser-only and muted. <b>Program</b> can be sent to a Blackmagic/AJA monitor-output device via the &#9974; OUTPUT button (Chrome/Edge, Window Management API) when that device is set to extend the desktop; capture-only SDI cards with no display surface still need a native app.
     <br>Designed by Sarkis Semaan
   </div>
 </div>
@@ -551,7 +566,7 @@
 
     <section>
       <h3>PROGRAM OUTPUT DRIVER</h3>
-      <div class="note">Preview is always shown in this browser only, and is never sent to hardware. The selections below apply to <b>Program</b> — the on-air bus — and configure the output profile handed off when this deck runs inside a native/Electron shell with the vendor's driver installed.</div>
+      <div class="note">Preview is always shown in this browser only, and is never sent to hardware. For <b>Program</b>: on a Blackmagic/AJA "monitor" device (UltraStudio Monitor 3G, Mini Monitor 4K, DeckLink Mini Monitor 4K) set to extend the desktop, the &#9974; OUTPUT button above the Program monitor sends real video to it directly from this browser tab — no native app required. Capture-only/SDI-only cards with no display surface still can't be addressed from a web page; those need a native app or Electron shell using the vendor's SDK.</div>
       <label class="field">Output device
         <select id="outputDeviceSelect">
           <optgroup label="Preview">
@@ -639,6 +654,7 @@
   const pgmScreen = $('pgmScreen'), pstScreen = $('pstScreen');
   const pgmPlaceholder = $('pgmPlaceholder'), pstPlaceholder = $('pstPlaceholder');
   const pgmTally = $('pgmTally'), pstTally = $('pstTally'), pgmOutTag = $('pgmOutTag');
+  const pgmOutputBtn = $('pgmOutputBtn'), pgmOutputPicker = $('pgmOutputPicker'), pgmScreenSelect = $('pgmScreenSelect'), pgmScreenGoBtn = $('pgmScreenGoBtn'), pgmOutputHint = $('pgmOutputHint');
   const pgmSource = $('pgmSource'), pgmTc = $('pgmTc'), pgmStatus = $('pgmStatus'), pgmReadout = $('pgmReadout');
   const pstSource = $('pstSource'), pstTc = $('pstTc'), pstStatus = $('pstStatus'), pstReadout = $('pstReadout');
   const takeBtn = $('takeBtn'), busPstBtn = $('busPstBtn'), busPgmBtn = $('busPgmBtn'), busCaption = $('busCaption');
@@ -1210,7 +1226,7 @@
 
   const driverNotes = {
     browser: 'Program renders straight to this screen — no external hardware involved.',
-    default: '<b>No direct browser access.</b> Selecting a Blackmagic or AJA device configures the output profile (format & color space) this deck will hand off when it is embedded in a native app or Electron shell running the vendor\'s desktop driver — a web page alone cannot address an SDI/HDMI capture card.'
+    default: 'Sets the output profile label shown below. If this device is configured as an extended-desktop monitor output, use the &#9974; OUTPUT button above the Program monitor to actually send video to it from this tab. Capture-only/SDI-only cards without a display surface still need a native app or Electron shell using the vendor\'s SDK.'
   };
   function updateDriverNote(){
     const v = outputDeviceSelect.value;
@@ -1421,6 +1437,66 @@
     applyMeter(meterMaskL, meterPeakL, meterState.l, meterState.peakL);
     applyMeter(meterMaskR, meterPeakR, meterState.r, meterState.peakR);
   }
+
+  /* ---------------- output Program to a connected display ---------------- */
+  let outputWin = null;
+  async function togglePgmOutputPicker(){
+    if(!('getScreenDetails' in window)){
+      try{ await pgmScreen.requestFullscreen(); }
+      catch(e){ /* ignore — some browsers require this to be retried on a fresh gesture */ }
+      return;
+    }
+    pgmOutputPicker.hidden = !pgmOutputPicker.hidden;
+    if(pgmOutputPicker.hidden) return;
+    pgmOutputHint.textContent = '';
+    try{
+      const details = await window.getScreenDetails();
+      pgmScreenSelect.innerHTML = '';
+      details.screens.forEach((s, i)=>{
+        const opt = document.createElement('option');
+        opt.value = i;
+        const here = s === details.currentScreen ? ' (this window)' : '';
+        opt.textContent = (s.label || ('Display ' + (i+1))) + ' — ' + s.width + '×' + s.height + here;
+        pgmScreenSelect.appendChild(opt);
+      });
+      pgmOutputPicker._screens = details.screens;
+      pgmOutputHint.textContent = 'Pick the display connected to your Blackmagic/AJA monitor-output device (set it to extend the desktop first, in Desktop Video or the AJA Control Panel).';
+    }catch(e){
+      pgmOutputHint.textContent = 'Screen access unavailable: ' + (e && e.message ? e.message : e);
+    }
+  }
+  pgmOutputBtn.addEventListener('click', togglePgmOutputPicker);
+
+  pgmScreenGoBtn.addEventListener('click', ()=>{
+    const screens = pgmOutputPicker._screens;
+    if(!screens) return;
+    const s = screens[Number(pgmScreenSelect.value)];
+    if(!s) return;
+    if(outputWin && !outputWin.closed) outputWin.close();
+    outputWin = window.open('', 'betaDeckProgramOut', 'left='+s.left+',top='+s.top+',width='+s.width+',height='+s.height);
+    if(!outputWin){
+      pgmOutputHint.textContent = 'Popup blocked — allow popups for this site and try again.';
+      return;
+    }
+    outputWin.document.title = 'Program Out';
+    outputWin.document.documentElement.style.cssText = 'margin:0;height:100%;background:#000;';
+    outputWin.document.body.style.cssText = 'margin:0;height:100%;overflow:hidden;background:#000;';
+    const outVideo = outputWin.document.createElement('video');
+    outVideo.autoplay = true;
+    outVideo.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
+    outputWin.document.body.appendChild(outVideo);
+    try{
+      outVideo.srcObject = programVideo.captureStream ? programVideo.captureStream() : programVideo.mozCaptureStream();
+    }catch(e){
+      pgmOutputHint.textContent = 'This browser cannot capture the Program stream: ' + (e && e.message ? e.message : e);
+      return;
+    }
+    outVideo.play().catch(()=>{});
+    if(outputWin.document.documentElement.requestFullscreen){
+      outputWin.document.documentElement.requestFullscreen().catch(()=>{});
+    }
+    pgmOutputHint.textContent = 'Sending Program to ' + pgmScreenSelect.options[pgmScreenSelect.selectedIndex].text + '. Note: captured audio may not include the in-page gain adjustment.';
+  });
 
   /* ---------------- init ---------------- */
   applyMode();
