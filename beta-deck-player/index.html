@@ -831,6 +831,7 @@
     pgmSourceType: 'file', // 'file' | 'live'
     pgmLiveVariant: 'raw',
     pgmOutBoundary: null, // out-point (seconds) for a trimmed clip on Program; null = play to natural end
+    pgmEndHandled: false, // guards against firing the same end-of-item transition twice (timeupdate can fire more than once past the boundary before playback actually stops)
 
     shuttleSpeed: 0,
     shuttleRAF: null,
@@ -1081,6 +1082,8 @@
     updatePlaceholders();
   });
   function handleProgramFileEnd(){
+    if(state.pgmEndHandled) return;
+    state.pgmEndHandled = true;
     setBusStatus('pgm','STOP');
     updatePlaceholders();
     if(state.programMode==='playlist' && state.playlistRunning){ onPlaylistItemComplete(); }
@@ -1153,6 +1156,7 @@
     const startAt = previewVideo.currentTime;
     const name = pstSource.textContent;
     state.pgmOutBoundary = state.pstOutPoint;
+    state.pgmEndHandled = false;
     programVideo.hidden = false; pgmCanvas.hidden = true;
     programVideo.srcObject = null;
     programVideo.src = url;
@@ -1331,6 +1335,81 @@
     state.shuttleSpeed = speed;
     shuttleMark.style.transform = 'rotate('+clamped+'deg)';
     setBusStatus(state.controlBus, speed===0 ? 'STOP' : (speed>0?'SHUTTLE >> ':'SHUTTLE << ')+Math.abs(speed).toFixed(1)+'x');
+  }
+
+  /* ---------------- Program audio: file / live-raw / live-delayed gates + stereo VU meters ---------------- */
+  let audioCtx = null, fileGate = null, liveGateRaw = null, liveGateDelayed = null, liveDelayNode = null, gainNode = null, analyserL = null, analyserR = null;
+  let bufL = null, bufR = null, liveAudioSource = null;
+  const meterState = { l:0, r:0, peakL:0, peakR:0 };
+
+  function ensureAudioGraph(){
+    if(audioCtx){ if(audioCtx.state==='suspended') audioCtx.resume(); return; }
+    try{
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const fileSource = audioCtx.createMediaElementSource(programVideo);
+      fileGate = audioCtx.createGain(); fileGate.gain.value = 1;
+      liveGateRaw = audioCtx.createGain(); liveGateRaw.gain.value = 0;
+      liveGateDelayed = audioCtx.createGain(); liveGateDelayed.gain.value = 0;
+      gainNode = audioCtx.createGain(); gainNode.gain.value = parseFloat(audioGainInput.value)||1;
+      const splitter = audioCtx.createChannelSplitter(2);
+      analyserL = audioCtx.createAnalyser(); analyserL.fftSize = 256;
+      analyserR = audioCtx.createAnalyser(); analyserR.fftSize = 256;
+      bufL = new Uint8Array(256); bufR = new Uint8Array(256);
+      fileSource.connect(fileGate); fileGate.connect(gainNode);
+      liveGateRaw.connect(gainNode);
+      liveGateDelayed.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      gainNode.connect(splitter);
+      splitter.connect(analyserL, 0);
+      splitter.connect(analyserR, 1);
+    }catch(e){ /* audio graph optional — meters/gain simply stay idle if unavailable */ }
+  }
+  function ensureLiveAudioGraph(stream){
+    if(!audioCtx) return;
+    try{
+      if(liveAudioSource){ try{ liveAudioSource.disconnect(); }catch(e){} }
+      liveAudioSource = audioCtx.createMediaStreamSource(stream);
+      liveDelayNode = audioCtx.createDelay(30);
+      liveDelayNode.delayTime.value = effectiveDelayMs()/1000;
+      liveAudioSource.connect(liveGateRaw);
+      liveAudioSource.connect(liveDelayNode);
+      liveDelayNode.connect(liveGateDelayed);
+    }catch(e){}
+  }
+  function setOnAirGate(which){
+    if(!gainNode) return;
+    if(fileGate) fileGate.gain.value = which==='file' ? 1 : 0;
+    if(liveGateRaw) liveGateRaw.gain.value = which==='liveRaw' ? 1 : 0;
+    if(liveGateDelayed) liveGateDelayed.gain.value = which==='liveDelayed' ? 1 : 0;
+  }
+  audioGainInput.addEventListener('input', ()=>{
+    const v = parseFloat(audioGainInput.value);
+    if(gainNode) gainNode.gain.value = v;
+    const db = v>0 ? 20*Math.log10(v) : -Infinity;
+    audioGainVal.textContent = (isFinite(db) ? (db>=0?'+':'')+db.toFixed(1) : '-∞') + ' dB';
+  });
+
+  function readLevel(analyser, buf){
+    if(!analyser) return 0;
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum += v*v; }
+    return Math.sqrt(sum/buf.length);
+  }
+  function applyMeter(maskEl, peakEl, level, peak){
+    const pct = Math.min(100, level*140);
+    maskEl.style.height = (100-pct)+'%';
+    peakEl.style.bottom = Math.min(100, peak*140)+'%';
+  }
+  function updateAudioMeters(){
+    const l = analyserL ? readLevel(analyserL, bufL) : 0;
+    const r = analyserR ? readLevel(analyserR, bufR) : 0;
+    meterState.l = Math.max(l, meterState.l*0.75);
+    meterState.r = Math.max(r, meterState.r*0.75);
+    meterState.peakL = Math.max(l, meterState.peakL*0.985);
+    meterState.peakR = Math.max(r, meterState.peakR*0.985);
+    applyMeter(meterMaskL, meterPeakL, meterState.l, meterState.peakL);
+    applyMeter(meterMaskR, meterPeakR, meterState.r, meterState.peakR);
   }
 
   /* ---------------- render loop (timecode + audio meters + live canvases) ---------------- */
@@ -1548,81 +1627,6 @@
     recBtn.classList.remove('lit');
   }
   recBtn.addEventListener('click', ()=>{ state.recording ? stopRecording() : startRecording(); });
-
-  /* ---------------- Program audio: file / live-raw / live-delayed gates + stereo VU meters ---------------- */
-  let audioCtx = null, fileGate = null, liveGateRaw = null, liveGateDelayed = null, liveDelayNode = null, gainNode = null, analyserL = null, analyserR = null;
-  let bufL = null, bufR = null, liveAudioSource = null;
-  const meterState = { l:0, r:0, peakL:0, peakR:0 };
-
-  function ensureAudioGraph(){
-    if(audioCtx){ if(audioCtx.state==='suspended') audioCtx.resume(); return; }
-    try{
-      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      const fileSource = audioCtx.createMediaElementSource(programVideo);
-      fileGate = audioCtx.createGain(); fileGate.gain.value = 1;
-      liveGateRaw = audioCtx.createGain(); liveGateRaw.gain.value = 0;
-      liveGateDelayed = audioCtx.createGain(); liveGateDelayed.gain.value = 0;
-      gainNode = audioCtx.createGain(); gainNode.gain.value = parseFloat(audioGainInput.value)||1;
-      const splitter = audioCtx.createChannelSplitter(2);
-      analyserL = audioCtx.createAnalyser(); analyserL.fftSize = 256;
-      analyserR = audioCtx.createAnalyser(); analyserR.fftSize = 256;
-      bufL = new Uint8Array(256); bufR = new Uint8Array(256);
-      fileSource.connect(fileGate); fileGate.connect(gainNode);
-      liveGateRaw.connect(gainNode);
-      liveGateDelayed.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      gainNode.connect(splitter);
-      splitter.connect(analyserL, 0);
-      splitter.connect(analyserR, 1);
-    }catch(e){ /* audio graph optional — meters/gain simply stay idle if unavailable */ }
-  }
-  function ensureLiveAudioGraph(stream){
-    if(!audioCtx) return;
-    try{
-      if(liveAudioSource){ try{ liveAudioSource.disconnect(); }catch(e){} }
-      liveAudioSource = audioCtx.createMediaStreamSource(stream);
-      liveDelayNode = audioCtx.createDelay(30);
-      liveDelayNode.delayTime.value = effectiveDelayMs()/1000;
-      liveAudioSource.connect(liveGateRaw);
-      liveAudioSource.connect(liveDelayNode);
-      liveDelayNode.connect(liveGateDelayed);
-    }catch(e){}
-  }
-  function setOnAirGate(which){
-    if(!gainNode) return;
-    if(fileGate) fileGate.gain.value = which==='file' ? 1 : 0;
-    if(liveGateRaw) liveGateRaw.gain.value = which==='liveRaw' ? 1 : 0;
-    if(liveGateDelayed) liveGateDelayed.gain.value = which==='liveDelayed' ? 1 : 0;
-  }
-  audioGainInput.addEventListener('input', ()=>{
-    const v = parseFloat(audioGainInput.value);
-    if(gainNode) gainNode.gain.value = v;
-    const db = v>0 ? 20*Math.log10(v) : -Infinity;
-    audioGainVal.textContent = (isFinite(db) ? (db>=0?'+':'')+db.toFixed(1) : '-∞') + ' dB';
-  });
-
-  function readLevel(analyser, buf){
-    if(!analyser) return 0;
-    analyser.getByteTimeDomainData(buf);
-    let sum = 0;
-    for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum += v*v; }
-    return Math.sqrt(sum/buf.length);
-  }
-  function applyMeter(maskEl, peakEl, level, peak){
-    const pct = Math.min(100, level*140);
-    maskEl.style.height = (100-pct)+'%';
-    peakEl.style.bottom = Math.min(100, peak*140)+'%';
-  }
-  function updateAudioMeters(){
-    const l = analyserL ? readLevel(analyserL, bufL) : 0;
-    const r = analyserR ? readLevel(analyserR, bufR) : 0;
-    meterState.l = Math.max(l, meterState.l*0.75);
-    meterState.r = Math.max(r, meterState.r*0.75);
-    meterState.peakL = Math.max(l, meterState.peakL*0.985);
-    meterState.peakR = Math.max(r, meterState.peakR*0.985);
-    applyMeter(meterMaskL, meterPeakL, meterState.l, meterState.peakL);
-    applyMeter(meterMaskR, meterPeakR, meterState.r, meterState.peakR);
-  }
 
   /* ---------------- Clip Logger ---------------- */
   const logState = { file:null, url:null, inPoint:0, outPoint:null };
