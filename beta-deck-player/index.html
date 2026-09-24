@@ -763,17 +763,18 @@
         A browser page can't open a raw SRT/UDP socket directly — no web platform API exposes one. The &#128225; SRT button above the Program monitor instead publishes Program (picture + on-air audio) as a <b>WHIP</b> (WebRTC-HTTP Ingestion) stream to a relay URL you host, and the relay re-emits that as SRT to wherever it needs to go.
       </div>
       <div class="note">
-        <b>Self-hosting a relay:</b> <a href="https://github.com/bluenviron/mediamtx" target="_blank" rel="noopener" style="color:var(--blue);">MediaMTX</a> is a single static binary that accepts WHIP in and can push SRT out. A minimal <code>mediamtx.yml</code>:
-        <pre style="white-space:pre-wrap;background:var(--bezel);border-radius:4px;padding:8px;margin:6px 0 0;font-family:'Share Tech Mono',monospace;font-size:.68rem;">webrtcAdditionalHosts: [your-relay-host]
-paths:
-  program:
-    source: publisher
-    srtPublishPassphrase: ""
+        <b>Self-hosting a relay:</b> <a href="https://github.com/bluenviron/mediamtx" target="_blank" rel="noopener" style="color:var(--blue);">MediaMTX</a> is a single static binary/Docker image that accepts WHIP in and serves the same stream back out over other protocols — SRT included — natively, with no ffmpeg re-mux step needed. A minimal <code>mediamtx.yml</code>:
+        <pre style="white-space:pre-wrap;background:var(--bezel);border-radius:4px;padding:8px;margin:6px 0 0;font-family:'Share Tech Mono',monospace;font-size:.68rem;">webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: '*'
 srt: yes
-srtAddress: :8890
-runOnReady: >
-  ffmpeg -i whep://localhost:8889/program -c copy -f mpegts srt://YOUR-RECEIVER-IP:9000?mode=caller</pre>
-        Point the button's WHIP endpoint field at <code>https://your-relay-host:8889/program/whip</code>. The relay must serve that endpoint over HTTPS (or be on a network the browser trusts) and allow CORS from this page's origin, or the browser will refuse the request.
+srtAddress: 0.0.0.0:14000   # bind 0.0.0.0, not a NAT'd public/Elastic IP directly
+paths:
+  program: {}                # defaults are enough — WHIP-in is auto-readable via SRT</pre>
+        A receiver then pulls the feed as an SRT <b>caller</b> (MediaMTX is the <b>listener</b>): <code>srt://YOUR-RELAY-IP:14000?streamid=read:program</code>.
+      </div>
+      <div class="note">
+        Point the button's WHIP endpoint field at <code>https://your-relay-host/program/whip</code>. That endpoint <b>must be HTTPS</b> — this page is served over HTTPS, and browsers block an HTTPS page from posting to a plain-HTTP endpoint (mixed content). Put a reverse proxy (e.g. Caddy) in front of MediaMTX's WHIP port to terminate real TLS, or use a self-signed cert and manually trust it in your browser first for quick testing. The relay also needs CORS allowed for this page's origin (<code>webrtcAllowOrigin</code> above), or the browser refuses the request outright.
       </div>
     </section>
   </div>
