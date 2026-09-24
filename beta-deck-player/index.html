@@ -888,6 +888,15 @@
     const mm = Math.floor(seconds/60), ss = seconds%60;
     return pad(mm)+':'+pad(ss);
   }
+  function parseDurStr(str){
+    if(!str) return null;
+    const parts = str.trim().split(':').map(Number);
+    if(parts.some(isNaN)) return null;
+    if(parts.length===1) return parts[0];
+    if(parts.length===2) return parts[0]*60 + parts[1];
+    if(parts.length===3) return parts[0]*3600 + parts[1]*60 + parts[2];
+    return null;
+  }
   function extOf(name){ const m = /\.([a-z0-9]+)$/i.exec(name||''); return m ? m[1].toLowerCase() : ''; }
 
   function setBusStatus(bus, s){
@@ -1763,11 +1772,15 @@
     }
     const now = Date.now();
     state.playlist.forEach((item, i)=>{
+      // keep only the single most-recently-completed item visible; older "done" rows are cleared from view
+      if(state.playlistRunning && i < state.currentPlaylistIndex - 1) return;
       const row = document.createElement('div');
       const isCurrent = state.playlistRunning && i === state.currentPlaylistIndex;
       row.className = 'pl-item' + (isCurrent ? ' onair current' : '');
       const badge = '<span class="pl-badge ' + item.type + '">' + item.type.toUpperCase() + '</span>';
-      const durTxt = item.type==='live' ? 'LIVE' : durStringOf(item.duration);
+      const durField = item.type==='live'
+        ? '<span style="color:var(--text-dim);font-size:.68rem;">(LIVE)</span>'
+        : '<input type="text" class="pl-dur mini-select" data-id="'+item.id+'" value="'+durStringOf(item.duration)+'" title="Duration mm:ss — editing it reflows the start time of every item after this one" style="width:48px;">';
       let timeTxt;
       if(item.scheduledStart == null){ timeTxt = 'TBD'; }
       else if(item.scheduledEnd == null){ timeTxt = '<b>' + clockStringOf(item.scheduledStart) + '</b> → open'; }
@@ -1786,7 +1799,7 @@
       row.innerHTML =
         '<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+
         badge+
-        '<span class="nm">'+item.name+' <span style="color:var(--text-dim);font-size:.68rem;">('+durTxt+')</span></span>'+
+        '<span class="nm">'+item.name+' '+durField+'</span>'+
         '<span class="pl-time">'+timeTxt+'</span>'+
         '<span class="pl-status '+statusTxt+'">'+statusLabel+'</span>'+
         liveFields+
@@ -1803,6 +1816,19 @@
           else if(act==='remove'){ removeFromPlaylist(i); }
         });
       });
+      const durInput = row.querySelector('.pl-dur');
+      if(durInput){
+        durInput.addEventListener('click', ev=>ev.stopPropagation());
+        durInput.addEventListener('change', ev=>{
+          ev.stopPropagation();
+          const secs = parseDurStr(durInput.value);
+          if(secs != null && secs > 0){
+            item.duration = secs;
+            item.outPoint = item.inPoint + secs; // keep actual on-air trim in sync with the edited duration
+          }
+          recomputeSchedule(); renderPlaylist();
+        });
+      }
       const airInput = row.querySelector('.pl-airat');
       if(airInput) airInput.addEventListener('change', ev=>{
         ev.stopPropagation();
@@ -1829,7 +1855,14 @@
   }
   async function cuePlaylistIndex(i){
     const item = state.playlist[i];
-    if(!item || item.type!=='clip') return;
+    if(!item) return;
+    if(item.type==='live'){
+      if(!state.liveStream){ playoutHint.textContent = 'No live source running — start one in LIVE INPUT first, then click this row again.'; return; }
+      state.pstLiveVariant = item.variant || 'raw';
+      pstLiveVariant.value = state.pstLiveVariant;
+      setPstTab('live');
+      return;
+    }
     if(!item.url){ item.url = await resolvePlayableUrl(item.file); }
     await stageToPreview(item.file, { url:item.url, name:item.name, inPoint:item.inPoint, outPoint:item.outPoint });
   }
