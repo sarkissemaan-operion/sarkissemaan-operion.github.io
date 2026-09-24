@@ -439,7 +439,8 @@
       <div class="bus bus-pgm">
         <div class="bus-label pgm">
           <span class="dot"></span>PROGRAM — ON AIR<span class="mode-pill" id="pgmModePill">SINGLE</span>
-          <button class="out-btn" id="pgmOutputBtn" title="Send Program video to a connected display (e.g. a Blackmagic/AJA monitor-output device)" style="margin-left:auto;">&#9974; OUTPUT</button>
+          <button class="out-btn" id="srtBtn" title="Send Program (video + audio) out as an SRT feed via a self-hosted WHIP→SRT relay" style="margin-left:auto;">&#128225; SRT</button>
+          <button class="out-btn" id="pgmOutputBtn" title="Send Program video to a connected display (e.g. a Blackmagic/AJA monitor-output device)">&#9974; OUTPUT</button>
         </div>
         <div class="monitor-frame pgm-frame">
           <div class="screws"><span></span><span></span><span></span><span></span></div>
@@ -458,6 +459,14 @@
           <select id="pgmScreenSelect"></select>
           <button class="btn ghost" id="pgmScreenGoBtn" style="padding:6px 12px;font-size:.7rem;">Go fullscreen</button>
           <span class="hint" id="pgmOutputHint" style="flex-basis:100%;"></span>
+        </div>
+        <div class="out-picker" id="srtPicker" hidden>
+          <label class="field" style="flex:1 1 240px;">WHIP endpoint (your relay)
+            <input type="text" id="srtWhipUrl" placeholder="https://your-relay-host:8889/program/whip">
+          </label>
+          <button class="btn" id="srtStartBtn" style="padding:6px 12px;font-size:.7rem;align-self:flex-end;">&#9654; Start Feed</button>
+          <button class="btn danger" id="srtStopBtn" style="padding:6px 12px;font-size:.7rem;align-self:flex-end;" disabled>&#9632; Stop Feed</button>
+          <span class="hint" id="srtHint" style="flex-basis:100%;"></span>
         </div>
         <div class="readout pgm" id="pgmReadout">
           <div class="readout-source" id="pgmSource">NO SIGNAL</div>
@@ -645,7 +654,8 @@
   <div class="finePrint">
     <b>Universal ingest</b> runs a full FFmpeg build compiled to WebAssembly, entirely in this tab — nothing uploads anywhere. &nbsp;·&nbsp;
     <b>Delay</b> is monitor-only by default; choosing the DELAYED variant on Preview/Program deliberately puts the buffered feed on air, audio included. &nbsp;·&nbsp;
-    <b>Program</b> can be sent to a Blackmagic/AJA monitor-output device via the &#9974; OUTPUT button (Chrome/Edge, Window Management API) when that device is set to extend the desktop.
+    <b>Program</b> can be sent to a Blackmagic/AJA monitor-output device via the &#9974; OUTPUT button (Chrome/Edge, Window Management API) when that device is set to extend the desktop. &nbsp;·&nbsp;
+    <b>SRT</b> requires a self-hosted WHIP→SRT relay (see Settings) — a browser page can't open a raw SRT socket on its own.
     <br>Designed by Sarkis Semaan
   </div>
 </div>
@@ -746,6 +756,26 @@
         <b>Auto</b> estimates a safe delay from this device's own rendering performance. <b>Manual</b> lets you fix an exact delay. This is a monitoring buffer by default — it only reaches air when you deliberately choose the DELAYED variant on Preview or in a rundown live item, at which point its audio is delayed to match, not just the picture.
       </div>
     </section>
+
+    <section>
+      <h3>SRT OUT</h3>
+      <div class="note">
+        A browser page can't open a raw SRT/UDP socket directly — no web platform API exposes one. The &#128225; SRT button above the Program monitor instead publishes Program (picture + on-air audio) as a <b>WHIP</b> (WebRTC-HTTP Ingestion) stream to a relay URL you host, and the relay re-emits that as SRT to wherever it needs to go.
+      </div>
+      <div class="note">
+        <b>Self-hosting a relay:</b> <a href="https://github.com/bluenviron/mediamtx" target="_blank" rel="noopener" style="color:var(--blue);">MediaMTX</a> is a single static binary that accepts WHIP in and can push SRT out. A minimal <code>mediamtx.yml</code>:
+        <pre style="white-space:pre-wrap;background:var(--bezel);border-radius:4px;padding:8px;margin:6px 0 0;font-family:'Share Tech Mono',monospace;font-size:.68rem;">webrtcAdditionalHosts: [your-relay-host]
+paths:
+  program:
+    source: publisher
+    srtPublishPassphrase: ""
+srt: yes
+srtAddress: :8890
+runOnReady: >
+  ffmpeg -i whep://localhost:8889/program -c copy -f mpegts srt://YOUR-RECEIVER-IP:9000?mode=caller</pre>
+        Point the button's WHIP endpoint field at <code>https://your-relay-host:8889/program/whip</code>. The relay must serve that endpoint over HTTPS (or be on a network the browser trusts) and allow CORS from this page's origin, or the browser will refuse the request.
+      </div>
+    </section>
   </div>
 </div>
 
@@ -771,6 +801,7 @@
   const pgmPlaceholder = $('pgmPlaceholder'), pstPlaceholder = $('pstPlaceholder');
   const pgmTally = $('pgmTally'), pstTally = $('pstTally'), pgmOutTag = $('pgmOutTag'), pgmModePill = $('pgmModePill');
   const pgmOutputBtn = $('pgmOutputBtn'), pgmOutputPicker = $('pgmOutputPicker'), pgmScreenSelect = $('pgmScreenSelect'), pgmScreenGoBtn = $('pgmScreenGoBtn'), pgmOutputHint = $('pgmOutputHint');
+  const srtBtn = $('srtBtn'), srtPicker = $('srtPicker'), srtWhipUrl = $('srtWhipUrl'), srtStartBtn = $('srtStartBtn'), srtStopBtn = $('srtStopBtn'), srtHint = $('srtHint');
   const pgmSource = $('pgmSource'), pgmTc = $('pgmTc'), pgmStatus = $('pgmStatus'), pgmReadout = $('pgmReadout');
   const pstSource = $('pstSource'), pstTc = $('pstTc'), pstStatus = $('pstStatus'), pstReadout = $('pstReadout');
   const takeBtn = $('takeBtn'), busPstBtn = $('busPstBtn'), busPgmBtn = $('busPgmBtn'), busCaption = $('busCaption');
@@ -2001,8 +2032,7 @@
     outVideo.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
     outputWin.document.body.appendChild(outVideo);
     try{
-      const srcEl = state.pgmSourceType==='live' && state.pgmLiveVariant==='raw' ? null : (pgmCanvas.hidden ? programVideo : pgmCanvas);
-      const el = (state.pgmSourceType==='live' && state.pgmLiveVariant==='raw') ? programVideo : (pgmCanvas.hidden ? programVideo : pgmCanvas);
+      const el = pgmCaptureElement();
       outVideo.srcObject = el.captureStream ? el.captureStream() : el.mozCaptureStream();
     }catch(e){
       pgmOutputHint.textContent = 'This browser cannot capture the Program stream: ' + (e && e.message ? e.message : e);
@@ -2014,6 +2044,79 @@
     }
     pgmOutputHint.textContent = 'Sending Program to ' + pgmScreenSelect.options[pgmScreenSelect.selectedIndex].text + '.';
   });
+
+  /* ---------------- SRT out: browser -> WHIP -> self-hosted relay -> SRT ---------------- */
+  function pgmCaptureElement(){
+    return (state.pgmSourceType==='live' && state.pgmLiveVariant==='raw') ? programVideo : (pgmCanvas.hidden ? programVideo : pgmCanvas);
+  }
+  let srtPc = null, srtResourceUrl = null, srtAudioDest = null;
+  srtWhipUrl.value = prefs.srtWhipUrl || '';
+
+  srtBtn.addEventListener('click', ()=>{
+    srtPicker.hidden = !srtPicker.hidden;
+    if(!srtPicker.hidden) srtHint.textContent = '';
+  });
+
+  async function startSrtFeed(){
+    const url = srtWhipUrl.value.trim();
+    if(!url){ srtHint.textContent = 'Enter your relay\'s WHIP endpoint URL first.'; return; }
+    prefs.srtWhipUrl = url; savePrefs(prefs);
+    srtStartBtn.disabled = true;
+    srtHint.textContent = 'Connecting…';
+    try{
+      ensureAudioGraph();
+      const el = pgmCaptureElement();
+      const videoStream = el.captureStream ? el.captureStream() : el.mozCaptureStream();
+      if(!srtAudioDest && audioCtx){ srtAudioDest = audioCtx.createMediaStreamDestination(); gainNode.connect(srtAudioDest); }
+
+      const combined = new MediaStream();
+      videoStream.getVideoTracks().forEach(t=>combined.addTrack(t));
+      if(srtAudioDest) srtAudioDest.stream.getAudioTracks().forEach(t=>combined.addTrack(t));
+
+      srtPc = new RTCPeerConnection({ iceServers: [{ urls:'stun:stun.l.google.com:19302' }] });
+      combined.getTracks().forEach(t=>srtPc.addTrack(t, combined));
+      srtPc.onconnectionstatechange = ()=>{
+        if(!srtPc) return;
+        srtHint.textContent = 'Feed: ' + srtPc.connectionState;
+        if(['failed','disconnected','closed'].includes(srtPc.connectionState)) stopSrtFeed();
+      };
+
+      const offer = await srtPc.createOffer();
+      await srtPc.setLocalDescription(offer);
+      // WHIP has no trickle-ICE signaling path here, so wait (briefly) for local candidates before posting the offer
+      await Promise.race([
+        new Promise(resolve=>{
+          if(srtPc.iceGatheringState==='complete') return resolve();
+          const check = ()=>{ if(srtPc.iceGatheringState==='complete'){ srtPc.removeEventListener('icegatheringstatechange', check); resolve(); } };
+          srtPc.addEventListener('icegatheringstatechange', check);
+        }),
+        new Promise(resolve=>setTimeout(resolve, 3000))
+      ]);
+
+      const resp = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/sdp' }, body: srtPc.localDescription.sdp });
+      if(!resp.ok) throw new Error('Relay responded ' + resp.status + ' ' + resp.statusText);
+      const answerSdp = await resp.text();
+      const location = resp.headers.get('Location');
+      srtResourceUrl = location ? new URL(location, resp.url).href : null;
+      await srtPc.setRemoteDescription({ type:'answer', sdp: answerSdp });
+      srtStopBtn.disabled = false;
+      srtHint.textContent = 'Feed live — sending Program (picture + on-air audio) to your relay.';
+    }catch(e){
+      srtHint.textContent = 'Could not start feed: ' + (e && e.message ? e.message : e) + ' — check the relay URL, that it\'s reachable, and that it allows CORS from this page\'s origin.';
+      if(srtPc){ srtPc.close(); srtPc = null; }
+      srtStartBtn.disabled = false;
+    }
+  }
+  async function stopSrtFeed(){
+    srtStopBtn.disabled = true;
+    if(srtResourceUrl){ try{ await fetch(srtResourceUrl, { method:'DELETE' }); }catch(e){} }
+    if(srtPc){ srtPc.onconnectionstatechange = null; srtPc.close(); srtPc = null; }
+    srtResourceUrl = null;
+    srtStartBtn.disabled = false;
+    srtHint.textContent = 'Feed stopped.';
+  }
+  srtStartBtn.addEventListener('click', startSrtFeed);
+  srtStopBtn.addEventListener('click', stopSrtFeed);
 
   /* ---------------- init ---------------- */
   setProgramMode('single');
