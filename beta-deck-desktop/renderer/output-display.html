@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+</style>
+</head>
+<body>
+<video id="v" autoplay muted></video>
+<script>
+// Plays WebM chunks relayed from the main window's MediaRecorder via IPC,
+// using Media Source Extensions — this avoids needing to pass a live
+// MediaStream object across Electron's renderer-process boundary, which
+// isn't reliably possible between two separate BrowserWindows.
+const video = document.getElementById('v');
+let mediaSource = null, sourceBuffer = null;
+let pending = [];
+let mimeType = null;
+
+function setupMediaSource(mt) {
+  mimeType = mt;
+  mediaSource = new MediaSource();
+  video.src = URL.createObjectURL(mediaSource);
+  mediaSource.addEventListener('sourceopen', () => {
+    try {
+      sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+      sourceBuffer.mode = 'sequence';
+      sourceBuffer.addEventListener('updateend', flushPending);
+      flushPending();
+    } catch (e) { console.error('addSourceBuffer failed', e); }
+  });
+}
+function flushPending() {
+  if (!sourceBuffer || sourceBuffer.updating) return;
+  if (pending.length) {
+    try { sourceBuffer.appendBuffer(pending.shift()); }
+    catch (e) { /* buffer full or not ready yet — chunk stays dropped, next one will catch up */ }
+  }
+}
+window.betaDeckNative.onOutputChunk((buf, mt) => {
+  if (!mediaSource || mimeType !== mt) setupMediaSource(mt);
+  pending.push(new Uint8Array(buf));
+  flushPending();
+  if (video.paused) video.play().catch(() => {});
+});
+</script>
+</body>
+</html>

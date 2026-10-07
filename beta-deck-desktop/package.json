@@ -1,0 +1,39 @@
+{
+  "name": "beta-deck-desktop",
+  "version": "1.0.0",
+  "description": "LBCI Beta Deck — playout rundown deck, as a desktop app with direct SRT output and native multi-display video out.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dist": "electron-builder"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^44.6.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.lbci.betadeck",
+    "productName": "LBCI Beta Deck",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "native/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.video",
+      "extraResources": [{ "from": "resources/mac/ffmpeg", "to": "ffmpeg" }]
+    },
+    "win": {
+      "target": "nsis",
+      "extraResources": [{ "from": "resources/win/ffmpeg.exe", "to": "ffmpeg.exe" }]
+    },
+    "linux": {
+      "target": "AppImage",
+      "extraResources": [{ "from": "resources/linux/ffmpeg", "to": "ffmpeg" }]
+    }
+  }
+}
